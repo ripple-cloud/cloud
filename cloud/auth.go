@@ -1,103 +1,103 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"html/template"
 	"net/http"
-	"path/filepath"
 	"time"
 
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/ripple-cloud/cloud/data"
 )
 
-func loginPageHandler(w http.ResponseWriter, r *http.Request) {
-	renderTemplate(w, "login", nil)
-}
-
-func signupPageHandler(w http.ResponseWriter, r *http.Request) {
-	renderTemplate(w, "signup", nil)
-}
-
 func signupHandler(w http.ResponseWriter, r *http.Request) {
-	redirectPath := "/"
-
-	login = data.User{
-		Email: r.FormValue("email"),
+	login := data.User{
+		Username: r.URL.Query().Get("username"),
 	}
 
-	// Check if user's email exists.
-	// Reference: data package.
-	if login.GetUserFrom(db).Email == "" {
-		user = data.User{
-			Username:  r.FormValue("username"),
-			Email:     r.FormValue("email"),
-			Password:  data.Encrypt(r.FormValue("password")),
-			Token:     data.GenerateToken(),
+	// Validate new user.
+	if login.GetUserFrom(db).Username == "" {
+		user := data.User{
+			Username:  login.Username,
+			Email:     r.URL.Query().Get("email"),
+			Password:  data.Encrypt(r.URL.Query().Get("password")),
+			Token:     "",
 			CreatedAt: time.Now(),
 		}
 		user.AddTo(db)
-
-		redirectPath = "/home"
+		fmt.Fprint(w, "Successful signup!")
 	} else {
-		fmt.Fprint(w, "email is already taken")
+		fmt.Fprint(w, "Email is already taken")
 	}
-
-	http.Redirect(w, r, redirectPath, 302)
 }
 
-var login data.User
-var user data.User
-
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-	redirectPath := "/"
-
-	login = data.User{
-		Email:    r.FormValue("email"),
-		Password: []byte(r.FormValue("password")),
+func tokenCreateHandler(w http.ResponseWriter, r *http.Request) {
+	login := data.User{
+		Username: r.URL.Query().Get("username"),
+		Password: []byte(r.URL.Query().Get("password")),
 	}
 
-	if login.GetUserFrom(db).Email == login.Email {
-		user = *login.GetUserFrom(db)
+	// Validate existing user.
+	if login.GetUserFrom(db).Username == login.Username {
+		user := *login.GetUserFrom(db)
 
 		err := bcrypt.CompareHashAndPassword(user.Password, []byte(login.Password))
 		if err != nil {
-			fmt.Println(err)
-			fmt.Fprint(w, "wrong password or user does not exist")
+			fmt.Fprint(w, "Username and password do not match")
 			return
 		}
-
-		redirectPath = "/home"
 	} else {
-		// TODO: Better handling of error messages.
-		fmt.Fprint(w, "wrong password or user does not exist")
+		fmt.Fprint(w, "User does not exist")
+		return
 	}
 
-	http.Redirect(w, r, redirectPath, 302)
+	// After validation, add token to database.
+	user := data.User{
+		Username: login.Username,
+		Token:    data.GenerateToken(),
+	}
+	user.SetToken(db)
+
+	// Return these values in json.
+	resp := data.User{
+		Username: user.Username,
+		Token:    user.GetUserFrom(db).Token,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	js, _ := json.Marshal(resp)
+	w.Write(js)
 }
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-
-	user = data.User{
-		Token: login.GetUserFrom(db).Token,
+func tokenRequestHandler(w http.ResponseWriter, r *http.Request) {
+	login := data.User{
+		Username: r.URL.Query().Get("username"),
+		Password: []byte(r.URL.Query().Get("password")),
 	}
 
-	renderTemplate(w, "home", &user)
-}
+	// Validate existing user.
+	if login.GetUserFrom(db).Username == login.Username {
+		user := *login.GetUserFrom(db)
 
-var t = make(map[string]*template.Template)
-
-func init() {
-	for _, tmpl := range []string{"home", "login", "signup"} {
-		path := filepath.Join(cwd, "github.com/ripple-cloud/cloud/templates/"+tmpl+".html")
-
-		t[tmpl] = template.Must(template.New("tmpl").ParseFiles(path))
+		err := bcrypt.CompareHashAndPassword(user.Password, []byte(login.Password))
+		if err != nil {
+			fmt.Fprint(w, "Wrong password")
+			return
+		}
+	} else {
+		fmt.Fprint(w, "User does not exist")
+		return
 	}
-}
 
-func renderTemplate(w http.ResponseWriter, tmpl string, user *data.User) {
-	err := t[tmpl].ExecuteTemplate(w, tmpl+".html", user)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Fetch existing token from database and return these values in json.
+	resp := data.User{
+		Username: login.Username,
+		Token:    login.GetUserFrom(db).Token,
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	js, _ := json.Marshal(resp)
+	w.Write(js)
 }

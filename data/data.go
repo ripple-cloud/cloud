@@ -11,12 +11,12 @@ import (
 )
 
 type User struct {
-	ID        string
-	Username  string
-	Email     string
-	Password  []byte
-	Token     string
-	CreatedAt time.Time
+	ID        string    `json:"-"`
+	Username  string    `json:"username"`
+	Email     string    `json:"-"`
+	Password  []byte    `json:"-"`
+	Token     string    `json:"token"`
+	CreatedAt time.Time `json:"-"`
 }
 
 func (user User) AddTo(db *sql.DB) {
@@ -33,8 +33,22 @@ func (user User) AddTo(db *sql.DB) {
 	}
 }
 
+func (user User) SetToken(db *sql.DB) {
+	stmt, err := db.Prepare("UPDATE users SET token = $1 WHERE username = $2")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(user.Token, user.Username)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func (login *User) GetUserFrom(db *sql.DB) *User {
-	rows, err := db.Query("SELECT id, username, email, password, token, created_at FROM users WHERE email = $1", login.Email)
+	rows, err := db.Query("SELECT id, username, email, password, token, created_at FROM users WHERE username = $1", login.Username)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -62,7 +76,6 @@ func GenerateToken() string {
 	return string(b)
 }
 
-// Encrypt password.
 func Encrypt(plaintext string) []byte {
 	cryptext, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
 	if err != nil {

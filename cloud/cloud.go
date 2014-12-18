@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	_ "github.com/lib/pq"
 )
@@ -14,8 +13,6 @@ import (
 var (
 	db  *sql.DB
 	err error
-
-	cwd, _ = os.Getwd()
 )
 
 func main() {
@@ -29,14 +26,10 @@ func main() {
 	}
 	defer db.Close()
 
-	// Implement better routing.
-	http.HandleFunc("/", signupPageHandler)
-	http.HandleFunc("/loginpage", loginPageHandler)
-	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/signup", signupHandler)
-	http.HandleFunc("/home", homeHandler)
 
-	http.Handle("/templates/", http.StripPrefix("/templates/", http.FileServer(http.Dir(filepath.Join(cwd, "/github.com/ripple-cloud/cloud/templates")))))
+	http.HandleFunc("/tokencreate", tokenCreateHandler)
+	http.HandleFunc("/tokenrequest", tokenRequestHandler)
 
 	http.ListenAndServe(":"+os.Getenv("PORT"), nil)
 }
