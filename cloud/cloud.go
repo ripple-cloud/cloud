@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
 
@@ -26,10 +27,11 @@ func main() {
 	}
 	defer db.Close()
 
-	http.HandleFunc("/signup", signupHandler)
+	r := mux.NewRouter()
 
-	http.HandleFunc("/tokencreate", tokenCreateHandler)
-	http.HandleFunc("/tokenrequest", tokenRequestHandler)
+	r.HandleFunc("/signup", signupHandler).Methods("POST")
+	r.HandleFunc("/api/oauth/token", tokenHandler).Methods("POST")
 
+	http.Handle("/", r)
 	http.ListenAndServe(":"+os.Getenv("PORT"), nil)
 }

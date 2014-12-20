@@ -11,19 +11,30 @@ import (
 )
 
 type User struct {
-	ID        string    `json:"-"`
-	Username  string    `json:"username"`
-	Email     string    `json:"-"`
-	Password  []byte    `json:"-"`
-	Token     string    `json:"token"`
-	CreatedAt time.Time `json:"-"`
+	ID        string
+	Username  string
+	Email     string
+	Password  []byte
+	Token     string
+	CreatedAt time.Time
 }
 
-func (user User) AddTo(db *sql.DB) {
+type TokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
+type ErrorResponse struct {
+	Error       string `json:"error"`
+	Description string `json:"error_description"`
+}
+
+func (user User) AddTo(db *sql.DB) error {
 	stmt, err := db.Prepare("INSERT into users (username, email, password, token, created_at) values ($1, $2, $3, $4, $5)")
 	if err != nil {
 		fmt.Println(err)
-		return
+		return err
 	}
 	defer stmt.Close()
 
@@ -31,6 +42,8 @@ func (user User) AddTo(db *sql.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	return nil
 }
 
 func (user User) SetToken(db *sql.DB) {
