@@ -1,17 +1,19 @@
-To sign up: http://[host]:[port]/signup?username=(your username)&password=(your password)&email=(your email)
+To sign up, make a `POST` request to http://[host]:[port]/signup?username=(your username)&password=(your password)&email=(your email)
 
 To request a token: http://[host]:[port]/api/oauth/token?username(your username)&password=(your password)&grant_type=password
 
 To get the `access_token`, make a `POST` request to http://[host]/api/oauth/token with the following params:
 
-`grant_type`
-REQUIRED. Must be `password`.
+```
+'grant_type'
+REQUIRED. Must be 'password'.
 
-`username`
+'username'
 REQUIRED. The username you registered at signup.
 
-`password`
+'password'
 REQUIRED.
+```
 
 An example request in curl:
 
