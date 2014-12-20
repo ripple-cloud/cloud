@@ -1,7 +1,7 @@
+### Sign Up
 To sign up, make a `POST` request to http://[host]:[port]/signup?username=(your username)&password=(your password)&email=(your email)
 
-To request a token: http://[host]:[port]/api/oauth/token?username(your username)&password=(your password)&grant_type=password
-
+### Get Token
 To get the `access_token`, make a `POST` request to http://[host]/api/oauth/token with the following params:
 
 ```
