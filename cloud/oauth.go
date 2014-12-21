@@ -39,10 +39,26 @@ func signupHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var respError data.ErrorResponse
 
+	// Sanitize query params.
+	queryMap := r.URL.Query()
+	for k := range queryMap {
+		if k != "grant_type" && k != "username" && k != "password" {
+			w.WriteHeader(400)
+
+			respError.Error = "Invalid_request"
+			respError.Description = fmt.Sprintf("Invalid parameter %s", k)
+
+			js, _ := json.Marshal(respError)
+			w.Write(js)
+			return
+		}
+	}
+
 	grant_type := r.URL.Query().Get("grant_type")
 	username := r.URL.Query().Get("username")
 	password := r.URL.Query().Get("password")
 
+	// Ensure required params are included in request.
 	if grant_type == "" || username == "" || password == "" {
 		w.WriteHeader(400)
 		respError.Error = "Invalid_request"
@@ -61,6 +77,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
+	// grant_type can only be set to password.
 	if grant_type != "password" {
 		w.WriteHeader(400)
 
@@ -72,6 +89,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
+	// Execute the rest of code if query params are valid.
 	login := data.User{
 		Username: username,
 		Password: []byte(password),
@@ -103,7 +121,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
-	// After validation, generate token and add to database.
+	// After validation, generate token and add to database if token has not been set.
 	user := data.User{
 		Username: login.Username,
 		Token:    data.GenerateToken(),
@@ -113,7 +131,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 
 	// Return token in json.
-	// NOTE: Left out Scope.
+	// NOTE: Left out scope and refresh_token.
 	resp := data.TokenResponse{
 		AccessToken: user.GetUserFrom(db).Token,
 		TokenType:   "bearer",
