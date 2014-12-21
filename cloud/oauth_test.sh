@@ -18,4 +18,4 @@ function test {
     fi
 }  
 
-test 'http://[host]/api/oauth/token?grant_type=password&username=[testuser]&password=[testpassword]'
+test "http://$RIPPLE_HOSTNAME/api/oauth/token?grant_type=password&username=$RIPPLE_TEST_USERNAME&password=$RIPPLE_TEST_PASSWORD"
