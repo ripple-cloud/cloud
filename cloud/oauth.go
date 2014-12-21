@@ -40,8 +40,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var respError data.ErrorResponse
 
 	// Sanitize query params.
-	queryMap := r.URL.Query()
-	for k := range queryMap {
+	for k := range r.URL.Query() {
 		if k != "grant_type" && k != "username" && k != "password" {
 			w.WriteHeader(400)
 
