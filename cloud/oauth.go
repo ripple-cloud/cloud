@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"code.google.com/p/go.crypto/bcrypt"
+	"github.com/julienschmidt/httprouter"
 	"github.com/ripple-cloud/cloud/data"
 )
 
-func signupHandler(w http.ResponseWriter, r *http.Request) {
+func signupHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	login := data.User{
 		Username: r.URL.Query().Get("username"),
 	}
@@ -35,7 +36,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func tokenHandler(w http.ResponseWriter, r *http.Request) {
+func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var respError data.ErrorResponse
 
 	grant_type := r.URL.Query().Get("grant_type")
