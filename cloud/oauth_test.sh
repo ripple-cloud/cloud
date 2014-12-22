@@ -14,7 +14,7 @@ function test {
         echo "Error $res on $1"
         curl -X POST $1 
     else
-        echo "UNKNOWN ERROR"
+        echo "UNKNOWN ERROR: Make sure your server is running."
     fi
 }  
 

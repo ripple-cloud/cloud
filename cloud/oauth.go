@@ -8,6 +8,7 @@ import (
 
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/julienschmidt/httprouter"
+
 	"github.com/ripple-cloud/cloud/data"
 )
 
