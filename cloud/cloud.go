@@ -32,5 +32,9 @@ func main() {
 	r.POST("/signup", signupHandler)
 	r.POST("/api/oauth/token", tokenHandler)
 
+	r.POST("/hub", addHubHandler)
+	r.GET("/hub", showHubHandler)
+	r.DELETE("/hub", deleteHubHandler)
+
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), r))
 }
