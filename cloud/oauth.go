@@ -41,7 +41,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	}
 
 	// Validate new user.
-	if !Exist("user?", "username", user.Username) {
+	if !exist("user?", "username", user.Username) {
 		user := data.User{
 			Username:  user.Username,
 			Email:     q["email"],
@@ -91,7 +91,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 
 	// Check if user exists.
-	if !Exist("user?", "username", q["username"]) {
+	if !exist("user?", "username", q["username"]) {
 		respErr = data.Error{
 			data.ErrorInfo{
 				Code:        "invalid_client",
@@ -104,7 +104,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		}
 		return
 	} else {
-		err := bcrypt.CompareHashAndPassword(*user.Get(db, "username", q["username"]).Password, []byte(q["password"]))
+		err := bcrypt.CompareHashAndPassword(user.Get(db, "username", q["username"]).Password, []byte(q["password"]))
 		if err != nil {
 			respErr = data.Error{
 				data.ErrorInfo{
@@ -121,7 +121,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 
 	// Since all is well, generate token and add to database if token has not been set.
-	if !Exist("token?", "username", q["username"]) {
+	if !exist("token?", "username", q["username"]) {
 		user.SetToken(db, "username", q["username"])
 	}
 
@@ -159,7 +159,7 @@ func addHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 		return
 	}
 
-	if !Exist("token?", "token", q["token"]) {
+	if !exist("token?", "token", q["token"]) {
 		respErr = data.Error{
 			data.ErrorInfo{
 				Code:        "invalid_client",
@@ -178,7 +178,7 @@ func addHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 		UserID: user.Get(db, "token", q["token"]).ID,
 	}
 
-	if Exist("hub?", q["hub"], hub.UserID) {
+	if exist("hub?", q["hub"], hub.UserID) {
 		respErr = data.Error{
 			data.ErrorInfo{
 				Code:        "invalid_request",
@@ -226,7 +226,7 @@ func showHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
-	if !Exist("token?", "token", q["token"]) {
+	if !exist("token?", "token", q["token"]) {
 		respErr = data.Error{
 			data.ErrorInfo{
 				Code:        "invalid_client",
@@ -269,7 +269,7 @@ func deleteHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 		return
 	}
 
-	if !Exist("token?", "token", q["token"]) {
+	if !exist("token?", "token", q["token"]) {
 		respErr = data.Error{
 			data.ErrorInfo{
 				Code:        "invalid_client",
@@ -288,7 +288,7 @@ func deleteHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 	userIDID := hub.Get(db, "id", q["id"])[0].UserID
 
 	if userIDToken != userIDID {
-		resp = data.Error{
+		resp := data.Error{
 			data.ErrorInfo{
 				Code:        "Invalid_request",
 				Description: "hub does not belong to user",
@@ -315,7 +315,7 @@ func deleteHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 
 //
 // Helper functions.
-// respJSON(), Exist(), sanitizeQuery().
+// respJSON(), exist(), sanitizeQuery().
 //
 
 func respJSON(w http.ResponseWriter, resp interface{}, code int) error {
@@ -330,7 +330,7 @@ func respJSON(w http.ResponseWriter, resp interface{}, code int) error {
 	return nil
 }
 
-func Exist(obj, col, value string) bool {
+func exist(obj, col, value string) bool {
 	user := data.User{}
 	hub := data.Hub{}
 
@@ -380,7 +380,6 @@ func sanitizeQuery(action string, r *http.Request, q map[string]string) data.Err
 				a += 1
 			}
 		}
-
 		if a == 0 {
 			respErr = data.Error{
 				data.ErrorInfo{
