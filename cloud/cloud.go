@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
@@ -32,9 +31,9 @@ func main() {
 	r.POST("/signup", signupHandler)
 	r.POST("/api/oauth/token", tokenHandler)
 
-	r.POST("/hub", addHubHandler)
-	r.GET("/hub", showHubHandler)
-	r.DELETE("/hub", deleteHubHandler)
+	r.POST("/api/hub", addHubHandler)
+	r.GET("/api/hub", showHubHandler)
+	r.DELETE("/api/hub", deleteHubHandler)
 
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), r))
 }

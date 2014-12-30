@@ -12,8 +12,12 @@ import (
 	"github.com/ripple-cloud/cloud/data"
 )
 
+//
+// Handlers
+//
+
 func signupHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// Action: POST "/signup"
+	// POST /signup
 	// Query: username, email, password
 	var respErr data.Error
 
@@ -23,6 +27,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 		"password": r.URL.Query().Get("password"),
 	}
 
+	// sanitizeQuery() checks if all and only required params are included.
 	respErr = sanitizeQuery("signup", r, q)
 	if respErr != (data.Error{}) {
 		if err := respJSON(w, respErr, 400); err != nil {
@@ -32,15 +37,15 @@ func signupHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	}
 
 	user := data.User{
-		Username: r.URL.Query().Get("username"),
+		Username: q["username"],
 	}
 
 	// Validate new user.
-	if !Exist("checkuser", "username", user.Username) {
+	if !Exist("user?", "username", user.Username) {
 		user := data.User{
 			Username:  user.Username,
-			Email:     r.URL.Query().Get("email"),
-			Password:  data.Encrypt(r.URL.Query().Get("password")),
+			Email:     q["email"],
+			Password:  data.Encrypt(q["password"]),
 			Token:     "",
 			CreatedAt: time.Now(),
 		}
@@ -65,7 +70,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 }
 
 func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// Actions: POST "api/oauth/token"
+	// POST api/oauth/token
 	// Query: grant_type, username, password
 	var respErr data.Error
 	var user data.User
@@ -99,8 +104,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		}
 		return
 	} else {
-		u := *user.Get(db, "username", q["username"])
-		err := bcrypt.CompareHashAndPassword(u.Password, []byte(q["password"]))
+		err := bcrypt.CompareHashAndPassword(*user.Get(db, "username", q["username"]).Password, []byte(q["password"]))
 		if err != nil {
 			respErr = data.Error{
 				data.ErrorInfo{
@@ -137,7 +141,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 }
 
 func addHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// Action: POST "/add"
+	// POST /api/add
 	// Query: hub, token.
 	var respErr data.Error
 	var user data.User
@@ -155,7 +159,7 @@ func addHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 		return
 	}
 
-	if !Exist("checktoken", "token", q["token"]) {
+	if !Exist("token?", "token", q["token"]) {
 		respErr = data.Error{
 			data.ErrorInfo{
 				Code:        "invalid_client",
@@ -169,7 +173,6 @@ func addHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 		return
 	}
 
-	//TODO: Move getbycolumn logic to data.go?
 	hub := data.Hub{
 		Hub:    q["hub"],
 		UserID: user.Get(db, "token", q["token"]).ID,
@@ -205,7 +208,7 @@ func addHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 }
 
 func showHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// Action: GET "/hub"
+	// GET /api/hub
 	// Query: "token"
 	var respErr data.Error
 	var user data.User
@@ -237,19 +240,17 @@ func showHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
-	userID := user.Get(db, "token", q["token"]).ID
-
 	resp := data.ShowHub{
-		Hubs: hub.Get(db, "user_id", userID),
+		Hubs: hub.Get(db, "user_id", user.Get(db, "token", q["token"]).ID),
 	}
 
-	if err := respJSON(w, resp, 201); err != nil {
+	if err := respJSON(w, resp, 200); err != nil {
 		fmt.Println(err)
 	}
 }
 
 func deleteHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// Action: DELETE "/hub"
+	// DELETE /api/hub
 	// Query: token, id
 	var respErr data.Error
 	var user data.User
@@ -286,24 +287,34 @@ func deleteHubHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 	userIDToken := user.Get(db, "token", q["token"]).ID
 	userIDID := hub.Get(db, "id", q["id"])[0].UserID
 
-	if userIDToken == userIDID {
-		resp := data.DeleteHub{
-			data.DeleteHubInfo{
-				ID:     q["id"],
-				Hub:    hub.Get(db, "id", q["id"])[0].Hub,
-				UserID: userIDID,
+	if userIDToken != userIDID {
+		resp = data.Error{
+			data.ErrorInfo{
+				Code:        "Invalid_request",
+				Description: "hub does not belong to user",
 			},
 		}
-
-		hub.Delete(db, "id", q["id"])
-		if err := respJSON(w, resp, 201); err != nil {
+		if err := respJSON(w, resp, 400); err != nil {
 			fmt.Println(err)
 		}
+	}
+
+	resp := data.DeleteHub{
+		data.DeleteHubInfo{
+			ID:     q["id"],
+			Hub:    hub.Get(db, "id", q["id"])[0].Hub,
+			UserID: userIDID,
+		},
+	}
+
+	hub.Delete(db, "id", q["id"])
+	if err := respJSON(w, resp, 200); err != nil {
+		fmt.Println(err)
 	}
 }
 
 //
-// Convenience functions.
+// Helper functions.
 // respJSON(), Exist(), sanitizeQuery().
 //
 
@@ -319,11 +330,11 @@ func respJSON(w http.ResponseWriter, resp interface{}, code int) error {
 	return nil
 }
 
-func Exist(check string, col, value string) bool {
+func Exist(obj, col, value string) bool {
 	user := data.User{}
 	hub := data.Hub{}
 
-	switch check {
+	switch obj {
 	case "user?":
 		if user.Get(db, col, value).Username == "" {
 			return false
@@ -334,12 +345,14 @@ func Exist(check string, col, value string) bool {
 		}
 	case "hub?":
 		for i := 0; i < len(hub.Get(db, "user_id", value)); i++ {
-			if hub.Get(db, "user_id", value)[i].Hub == col { //pls rename.
+			if hub.Get(db, "user_id", value)[i].Hub == col {
 				return true
 			} else {
 				return false
 			}
 		}
+	default:
+		fmt.Println("Error: check that you're querying the right objects")
 	}
 
 	return true
