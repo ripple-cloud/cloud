@@ -6,3 +6,9 @@ create table users (
   token varchar(255),
   created_at timestamp not null
 );
+
+create table hubs (
+  id serial primary key,
+  hub varchar(255) not null,
+  user_id int references users(id)
+);
