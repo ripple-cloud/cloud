@@ -1,8 +1,6 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,30 +9,21 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var (
-	db  *sql.DB
-	err error
-)
-
 func main() {
-	db, err = sql.Open("postgres", fmt.Sprintf("user=%s host=%s dbname=%s sslmode=disable",
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_NAME"),
-	))
+	db, err := db()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	r := httprouter.New()
+	router := httprouter.New()
 
-	r.POST("/signup", signupHandler)
-	r.POST("/api/oauth/token", tokenHandler)
+	router.POST("/signup", signupHandler(db))
+	router.POST("/api/oauth/token", tokenHandler(db))
 
-	r.POST("/api/hub", addHubHandler)
-	r.GET("/api/hub", showHubHandler)
-	r.DELETE("/api/hub", deleteHubHandler)
+	router.POST("/api/hub", addHubHandler(db))
+	router.GET("/api/hub", showHubHandler(db))
+	router.DELETE("/api/hub", deleteHubHandler(db))
 
-	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), r))
+	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), router))
 }

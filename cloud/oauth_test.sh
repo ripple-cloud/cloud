@@ -19,4 +19,3 @@ function test {
 }  
 
 test "http://$RIPPLE_HOSTNAME/api/oauth/token?grant_type=password&username=$RIPPLE_TEST_USERNAME&password=$RIPPLE_TEST_PASSWORD"
-test "http://$RIPPLE_HOSTNAME/hub?token=m5r3on6ovjstib04dikklqe1ubxvg3whzfraz0sz4pq81ge7qudjipwex23gcanh&hub=abcdefaag"
