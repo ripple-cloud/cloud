@@ -133,7 +133,6 @@ func tokenHandler(db *sql.DB) httprouter.Handle {
 			},
 		}
 
-		w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 		if err := respJSON(w, resp, 200); err != nil {
 			fmt.Println(err)
 		}

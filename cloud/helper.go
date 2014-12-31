@@ -25,6 +25,7 @@ func db() (*sql.DB, error) {
 }
 
 func respJSON(w http.ResponseWriter, resp interface{}, code int) error {
+	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 	w.WriteHeader(code)
 
 	js, err := json.Marshal(resp)
