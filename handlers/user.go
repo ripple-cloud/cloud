@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"database/sql"
@@ -10,9 +10,10 @@ import (
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/ripple-cloud/cloud/data"
+	"github.com/ripple-cloud/cloud/utils"
 )
 
-func signupHandler(db *sql.DB) httprouter.Handle {
+func Signup(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		// POST /signup
 		// Query: username, email, password
@@ -25,9 +26,9 @@ func signupHandler(db *sql.DB) httprouter.Handle {
 		}
 
 		// sanitizeQuery() checks if all and only required params are included.
-		respErr = sanitizeQuery("signup", r, q)
+		respErr = utils.SanitizeQuery("signup", r, q)
 		if respErr != (data.Error{}) {
-			if err := respJSON(w, respErr, 400); err != nil {
+			if err := utils.RespJSON(w, respErr, 400); err != nil {
 				fmt.Println(err)
 			}
 			return
@@ -38,7 +39,7 @@ func signupHandler(db *sql.DB) httprouter.Handle {
 		}
 
 		// Validate new user.
-		if !exist("user?", db, "username", user.Username) {
+		if !utils.Exist("user?", db, "username", user.Username) {
 			user := data.User{
 				Username:  user.Username,
 				Email:     q["email"],
@@ -59,7 +60,7 @@ func signupHandler(db *sql.DB) httprouter.Handle {
 			}
 			//TODO: Check if email is unique and add error handling.
 
-			if err := respJSON(w, respErr, 400); err != nil {
+			if err := utils.RespJSON(w, respErr, 400); err != nil {
 				fmt.Println(err)
 			}
 			return
@@ -67,9 +68,9 @@ func signupHandler(db *sql.DB) httprouter.Handle {
 	}
 }
 
-func tokenHandler(db *sql.DB) httprouter.Handle {
+func UserToken(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		// POST api/oauth/token
+		// POST /oauth/token
 		// Query: grant_type, username, password
 		var respErr data.Error
 		var user data.User
@@ -81,16 +82,16 @@ func tokenHandler(db *sql.DB) httprouter.Handle {
 		}
 
 		// sanitizeQuery() checks if (i) all and only required params are included (ii) grant_type is set to password.
-		respErr = sanitizeQuery("token", r, q)
+		respErr = utils.SanitizeQuery("token", r, q)
 		if respErr != (data.Error{}) {
-			if err := respJSON(w, respErr, 400); err != nil {
+			if err := utils.RespJSON(w, respErr, 400); err != nil {
 				fmt.Println(err)
 			}
 			return
 		}
 
 		// Check if user exists.
-		if !exist("user?", db, "username", q["username"]) {
+		if !utils.Exist("user?", db, "username", q["username"]) {
 			respErr = data.Error{
 				data.ErrorInfo{
 					Code:        "invalid_client",
@@ -98,7 +99,7 @@ func tokenHandler(db *sql.DB) httprouter.Handle {
 				},
 			}
 
-			if err := respJSON(w, respErr, 400); err != nil {
+			if err := utils.RespJSON(w, respErr, 400); err != nil {
 				fmt.Println(err)
 			}
 			return
@@ -112,7 +113,7 @@ func tokenHandler(db *sql.DB) httprouter.Handle {
 					},
 				}
 
-				if err := respJSON(w, respErr, 400); err != nil {
+				if err := utils.RespJSON(w, respErr, 400); err != nil {
 					fmt.Println(err)
 				}
 				return
@@ -120,7 +121,7 @@ func tokenHandler(db *sql.DB) httprouter.Handle {
 		}
 
 		// Since all is well, generate token and add to database if token has not been set.
-		if !exist("token?", db, "username", q["username"]) {
+		if !utils.Exist("token?", db, "username", q["username"]) {
 			user.SetToken(db, "username", q["username"])
 		}
 
@@ -133,7 +134,7 @@ func tokenHandler(db *sql.DB) httprouter.Handle {
 			},
 		}
 
-		if err := respJSON(w, resp, 200); err != nil {
+		if err := utils.RespJSON(w, resp, 200); err != nil {
 			fmt.Println(err)
 		}
 	}

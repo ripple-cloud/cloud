@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"database/sql"
@@ -15,7 +15,7 @@ import (
 // respJSON(), exist(), sanitizeQuery().
 //
 
-func db() (*sql.DB, error) {
+func Db() (*sql.DB, error) {
 	db, err := sql.Open("postgres", fmt.Sprintf("user=%s host=%s dbname=%s sslmode=disable",
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_HOST"),
@@ -24,7 +24,7 @@ func db() (*sql.DB, error) {
 	return db, err
 }
 
-func respJSON(w http.ResponseWriter, resp interface{}, code int) error {
+func RespJSON(w http.ResponseWriter, resp interface{}, code int) error {
 	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 	w.WriteHeader(code)
 
@@ -37,7 +37,7 @@ func respJSON(w http.ResponseWriter, resp interface{}, code int) error {
 	return nil
 }
 
-func exist(obj string, db *sql.DB, col, value string) bool {
+func Exist(obj string, db *sql.DB, col, value string) bool {
 	user := data.User{}
 	hub := data.Hub{}
 
@@ -65,7 +65,8 @@ func exist(obj string, db *sql.DB, col, value string) bool {
 	return true
 }
 
-func sanitizeQuery(action string, r *http.Request, q map[string]string) data.Error {
+// FIXME: This should not require an action argument. (let the caller handle the error)
+func SanitizeQuery(action string, r *http.Request, q map[string]string) data.Error {
 	var respErr data.Error
 
 	for k, v := range q {
