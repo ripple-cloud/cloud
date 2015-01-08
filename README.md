@@ -62,3 +62,10 @@ If the request was not successful, you will receive a response with status code 
 * Send a request to an app (`POST /api/v1/app/:id`)
 * List all datapoints collected from an app (`GET /api/v1/app/:id`)
 * Delete an app (`DELETE /api/v1/app`)
+
+## Development
+
+* Install `go get github.com/mattes/migrate`
+* Copy `.env-example` to `.env`
+  - Set your postgres DB URL
+* To run migrations: `make migrate`
