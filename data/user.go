@@ -32,8 +32,8 @@ func (user User) Add(db *sql.DB) {
 	}
 }
 
-func (user *User) Get(db *sql.DB, col, value string) *User {
-	rows, err := db.Query(fmt.Sprintf("SELECT id, username, email, password, token, created_at FROM users WHERE %s = $1", col), value)
+func (user *User) GetByID(db *sql.DB) *User {
+	rows, err := db.Query("SELECT id, username, email, password, token, created_at FROM users WHERE id = $1", user.ID)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -48,7 +48,23 @@ func (user *User) Get(db *sql.DB, col, value string) *User {
 	return u
 }
 
-func (user User) SetToken(db *sql.DB, token, username string) {
+func (user *User) GetByToken(db *sql.DB) *User {
+	rows, err := db.Query("SELECT id, username, email, password, token, created_at FROM users WHERE token = $1", user.Token)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	u := &User{}
+	for rows.Next() {
+		err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password, &u.Token, &u.CreatedAt)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	return u
+}
+
+func (user User) SetToken(db *sql.DB) {
 	stmt, err := db.Prepare("UPDATE users SET token = $1 WHERE username = $2")
 	if err != nil {
 		fmt.Println(err)
@@ -56,7 +72,7 @@ func (user User) SetToken(db *sql.DB, token, username string) {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(generateToken(), username)
+	_, err = stmt.Exec(generateToken(), user.Username)
 	if err != nil {
 		fmt.Println(err)
 	}

@@ -13,10 +13,10 @@ import (
 	"github.com/ripple-cloud/cloud/utils"
 )
 
+// POST /signup
+// Query: username, email, password
 func Signup(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		// POST /signup
-		// Query: username, email, password
 		var respErr data.Error
 
 		q := map[string]string{
@@ -26,7 +26,7 @@ func Signup(db *sql.DB) httprouter.Handle {
 		}
 
 		// sanitizeQuery() checks if all and only required params are included.
-		respErr = utils.SanitizeQuery("signup", r, q)
+		respErr = utils.SanitizeQuery(r, q)
 		if respErr != (data.Error{}) {
 			if err := utils.RespJSON(w, respErr, 400); err != nil {
 				fmt.Println(err)
@@ -39,7 +39,7 @@ func Signup(db *sql.DB) httprouter.Handle {
 		}
 
 		// Validate new user.
-		if !utils.Exist("user?", db, "username", user.Username) {
+		if user.GetByUsername(db).Username == "" {
 			user := data.User{
 				Username:  user.Username,
 				Email:     q["email"],
@@ -68,10 +68,10 @@ func Signup(db *sql.DB) httprouter.Handle {
 	}
 }
 
+// POST /oauth/token
+// Query: grant_type, username, password
 func UserToken(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		// POST /oauth/token
-		// Query: grant_type, username, password
 		var respErr data.Error
 		var user data.User
 
@@ -81,8 +81,10 @@ func UserToken(db *sql.DB) httprouter.Handle {
 			"password":   r.URL.Query().Get("password"),
 		}
 
-		// sanitizeQuery() checks if (i) all and only required params are included (ii) grant_type is set to password.
-		respErr = utils.SanitizeQuery("token", r, q)
+		user.Username = q["username"]
+
+		// sanitizeQuery() checks if all and only required params are included.
+		respErr = utils.SanitizeQuery(r, q)
 		if respErr != (data.Error{}) {
 			if err := utils.RespJSON(w, respErr, 400); err != nil {
 				fmt.Println(err)
@@ -90,8 +92,21 @@ func UserToken(db *sql.DB) httprouter.Handle {
 			return
 		}
 
+		if q["grant_type"] != "password" {
+			respErr = data.Error{
+				data.ErrorInfo{
+					Code:        "invalid_request",
+					Description: "Invalid 'grant_type' value. 'grant_type' should be set to 'password'",
+				},
+			}
+			if err := utils.RespJSON(w, respErr, 400); err != nil {
+				fmt.Println(err)
+			}
+			return
+		}
+
 		// Check if user exists.
-		if !utils.Exist("user?", db, "username", q["username"]) {
+		if user.GetByUsername(db).Username == "" {
 			respErr = data.Error{
 				data.ErrorInfo{
 					Code:        "invalid_client",
@@ -104,7 +119,7 @@ func UserToken(db *sql.DB) httprouter.Handle {
 			}
 			return
 		} else {
-			err := bcrypt.CompareHashAndPassword(user.Get(db, "username", q["username"]).Password, []byte(q["password"]))
+			err := bcrypt.CompareHashAndPassword(user.GetByUsername(db).Password, []byte(q["password"]))
 			if err != nil {
 				respErr = data.Error{
 					data.ErrorInfo{
@@ -121,14 +136,14 @@ func UserToken(db *sql.DB) httprouter.Handle {
 		}
 
 		// Since all is well, generate token and add to database if token has not been set.
-		if !utils.Exist("token?", db, "username", q["username"]) {
-			user.SetToken(db, "username", q["username"])
+		if user.GetByUsername(db).Token == "" {
+			user.SetToken(db)
 		}
 
 		// NOTE: Left out scope and refresh_token.
 		resp := data.Token{
 			data.TokenInfo{
-				AccessToken: user.Get(db, "username", q["username"]).Token,
+				AccessToken: user.GetByUsername(db).Token,
 				TokenType:   "bearer",
 				ExpiresIn:   2592000, // 30 days.
 			},

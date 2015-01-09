@@ -66,7 +66,7 @@ func Exist(obj string, db *sql.DB, col, value string) bool {
 }
 
 // FIXME: This should not require an action argument. (let the caller handle the error)
-func SanitizeQuery(action string, r *http.Request, q map[string]string) data.Error {
+func SanitizeQuery(r *http.Request, q map[string]string) data.Error {
 	var respErr data.Error
 
 	for k, v := range q {
@@ -100,17 +100,5 @@ func SanitizeQuery(action string, r *http.Request, q map[string]string) data.Err
 		a = 0
 	}
 
-	switch action {
-	case "token":
-		if q["grant_type"] != "password" {
-			respErr = data.Error{
-				data.ErrorInfo{
-					Code:        "invalid_request",
-					Description: "Invalid 'grant_type' value. 'grant_type' should be set to 'password'",
-				},
-			}
-			return respErr
-		}
-	}
 	return respErr
 }

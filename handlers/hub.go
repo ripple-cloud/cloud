@@ -10,10 +10,10 @@ import (
 	"github.com/ripple-cloud/cloud/utils"
 )
 
+// POST /api/add
+// Query: hub, token.
 func AddHub(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		// POST /api/add
-		// Query: hub, token.
 		var respErr data.Error
 		var user data.User
 
@@ -22,7 +22,7 @@ func AddHub(db *sql.DB) httprouter.Handle {
 			"token": r.URL.Query().Get("token"),
 		}
 
-		respErr = utils.SanitizeQuery("add", r, q)
+		respErr = utils.SanitizeQuery(r, q)
 		if respErr != (data.Error{}) {
 			if err := utils.RespJSON(w, respErr, 400); err != nil {
 				fmt.Println(err)
@@ -30,7 +30,7 @@ func AddHub(db *sql.DB) httprouter.Handle {
 			return
 		}
 
-		if !utils.Exist("token?", db, "token", q["token"]) {
+		if user.GetByToken(db).Token == "" {
 			respErr = data.Error{
 				data.ErrorInfo{
 					Code:        "invalid_client",
@@ -46,10 +46,11 @@ func AddHub(db *sql.DB) httprouter.Handle {
 
 		hub := data.Hub{
 			Hub:    q["hub"],
-			UserID: user.Get(db, "token", q["token"]).ID,
+			UserID: user.GetByToken(db).ID,
 		}
 
-		if utils.Exist("hub?", db, q["hub"], hub.UserID) {
+		//check
+		if hub.GetByHub(db).Hub == "" {
 			respErr = data.Error{
 				data.ErrorInfo{
 					Code:        "invalid_request",
@@ -67,7 +68,7 @@ func AddHub(db *sql.DB) httprouter.Handle {
 
 		resp := data.AddHub{
 			data.AddHubInfo{
-				ID:     hub.Get(db, "hub", q["hub"])[0].ID,
+				ID:     hub.GetByHub(db)[0].ID,
 				UserID: hub.UserID,
 				Slug:   q["hub"],
 			},
@@ -79,10 +80,10 @@ func AddHub(db *sql.DB) httprouter.Handle {
 	}
 }
 
+// GET /api/hub
+// Query: "token"
 func ShowHub(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		// GET /api/hub
-		// Query: "token"
 		var respErr data.Error
 		var user data.User
 		var hub data.Hub
@@ -91,7 +92,7 @@ func ShowHub(db *sql.DB) httprouter.Handle {
 			"token": r.URL.Query().Get("token"),
 		}
 
-		respErr = utils.SanitizeQuery("get", r, q)
+		respErr = utils.SanitizeQuery(r, q)
 		if respErr != (data.Error{}) {
 			if err := utils.RespJSON(w, respErr, 400); err != nil {
 				fmt.Println(err)
@@ -99,7 +100,7 @@ func ShowHub(db *sql.DB) httprouter.Handle {
 			return
 		}
 
-		if !utils.Exist("token?", db, "token", q["token"]) {
+		if user.GetByToken(db).Token == "" {
 			respErr = data.Error{
 				data.ErrorInfo{
 					Code:        "invalid_client",
@@ -114,7 +115,7 @@ func ShowHub(db *sql.DB) httprouter.Handle {
 		}
 
 		resp := data.ShowHub{
-			Hubs: hub.Get(db, "user_id", user.Get(db, "token", q["token"]).ID),
+			Hubs: hub.Get(db, "user_id", user.GetByToken(db).ID),
 		}
 
 		if err := utils.RespJSON(w, resp, 200); err != nil {
@@ -123,10 +124,10 @@ func ShowHub(db *sql.DB) httprouter.Handle {
 	}
 }
 
+// DELETE /api/hub
+// Query: token, id
 func DeleteHub(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		// DELETE /api/hub
-		// Query: token, id
 		var respErr data.Error
 		var user data.User
 		var hub data.Hub
@@ -136,7 +137,7 @@ func DeleteHub(db *sql.DB) httprouter.Handle {
 			"id":    r.URL.Query().Get("id"),
 		}
 
-		respErr = utils.SanitizeQuery("delete", r, q)
+		respErr = utils.SanitizeQuery(r, q)
 		if respErr != (data.Error{}) {
 			if err := utils.RespJSON(w, respErr, 400); err != nil {
 				fmt.Println(err)
@@ -144,7 +145,7 @@ func DeleteHub(db *sql.DB) httprouter.Handle {
 			return
 		}
 
-		if !utils.Exist("token?", db, "token", q["token"]) {
+		if user.GetByToken(db).Token == "" {
 			respErr = data.Error{
 				data.ErrorInfo{
 					Code:        "invalid_client",
@@ -159,8 +160,9 @@ func DeleteHub(db *sql.DB) httprouter.Handle {
 		}
 
 		// Check that hub id belongs to user of access token.
-		userIDToken := user.Get(db, "token", q["token"]).ID
-		userIDID := hub.Get(db, "id", q["id"])[0].UserID
+		userIDToken := user.GetByToken(db).ID
+		//check
+		userIDID := hub.GetByID(db).UserID
 
 		if userIDToken != userIDID {
 			resp := data.Error{
@@ -177,12 +179,14 @@ func DeleteHub(db *sql.DB) httprouter.Handle {
 		resp := data.DeleteHub{
 			data.DeleteHubInfo{
 				ID:     q["id"],
-				Hub:    hub.Get(db, "id", q["id"])[0].Hub,
+				Hub:    hub.GetByID(db).Hub,
 				UserID: userIDID,
 			},
 		}
 
-		hub.Delete(db, "id", q["id"])
+		//define hub struct id
+
+		hub.Delete(db)
 		if err := utils.RespJSON(w, resp, 200); err != nil {
 			fmt.Println(err)
 		}

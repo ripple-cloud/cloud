@@ -27,8 +27,8 @@ func (hub *Hub) Add(db *sql.DB) {
 	}
 }
 
-func (hub *Hub) Get(db *sql.DB, col, value string) []*Hub {
-	rows, err := db.Query(fmt.Sprintf("SELECT id, hub, user_id FROM hubs WHERE %s = $1", col), value)
+func (hub *Hub) GetByUser(db *sql.DB) []*Hub {
+	rows, err := db.Query("SELECT id, hub, user_id FROM hubs WHERE user = $1", hub.UserID)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,8 +47,28 @@ func (hub *Hub) Get(db *sql.DB, col, value string) []*Hub {
 	return res
 }
 
-func (hub *Hub) Delete(db *sql.DB, col, value string) {
-	stmt, err := db.Prepare(fmt.Sprintf("DELETE FROM hubs WHERE %s = $1", col))
+func (hub *Hub) GetByHub(db *sql.DB) []*Hub {
+	rows, err := db.Query("SELECT id, hub, user_id FROM hubs WHERE id = $1", hub.Hub)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	var res []*Hub
+	for rows.Next() {
+		h := &Hub{}
+		err := rows.Scan(&h.ID, &h.Hub, &h.UserID)
+		if err != nil {
+			fmt.Println(err)
+		}
+		res = append(res, h)
+	}
+
+	return res
+}
+
+func (hub *Hub) Delete(db *sql.DB) {
+	stmt, err := db.Prepare("DELETE FROM hubs WHERE id = $1", hub.ID)
 	if err != nil {
 		fmt.Println(err)
 	}
