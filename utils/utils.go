@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/ripple-cloud/cloud/data"
 )
@@ -14,15 +13,6 @@ import (
 // Helper functions for cloud.go, route_user.go, route_hub.go.
 // respJSON(), exist(), sanitizeQuery().
 //
-
-func Db() (*sql.DB, error) {
-	db, err := sql.Open("postgres", fmt.Sprintf("user=%s host=%s dbname=%s sslmode=disable",
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_NAME"),
-	))
-	return db, err
-}
 
 func RespJSON(w http.ResponseWriter, resp interface{}, code int) error {
 	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
