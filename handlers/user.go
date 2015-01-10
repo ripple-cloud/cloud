@@ -2,155 +2,124 @@ package handlers
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 	"time"
 
-	"code.google.com/p/go.crypto/bcrypt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/ripple-cloud/cloud/data"
-	"github.com/ripple-cloud/cloud/utils"
 )
 
-// POST /signup
-// Query: username, email, password
+var tokenSecret string
+
+func init() {
+	tokenSecret = os.GetEnv("TOKEN_SECRET")
+	if tokenSecret == "" {
+		panic("TOKEN_SECRET is not set")
+	}
+}
+
 func Signup(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		var respErr data.Error
 
-		q := map[string]string{
-			"username": r.URL.Query().Get("username"),
-			"email":    r.URL.Query().Get("email"),
-			"password": r.URL.Query().Get("password"),
+		username := r.FormValue("username")
+		if username == "" {
+			return badRequest(w, errorMsg{"username_required", "username required"})
 		}
 
-		// sanitizeQuery() checks if all and only required params are included.
-		respErr = utils.SanitizeQuery(r, q)
-		if respErr != (data.Error{}) {
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
-			}
-			return
+		email := r.FormValue("email")
+		if email == "" {
+			return badRequest(w, errorMsg{"email_required", "email required"})
 		}
 
-		user := data.User{
-			Username: q["username"],
+		password := r.FormValue("password")
+		if password == "" {
+			return badRequest(w, errorMsg{"password_required", "password required"})
 		}
 
-		// Validate new user.
-		if user.GetByUsername(db).Username == "" {
-			user := data.User{
-				Username:  user.Username,
-				Email:     q["email"],
-				Password:  data.Encrypt(q["password"]),
-				Token:     "",
-				CreatedAt: time.Now(),
-			}
-			user.Add(db)
-			// TODO: render JSON
-			fmt.Fprint(w, "Successful signup!")
-
-		} else {
-			respErr = data.Error{
-				data.ErrorInfo{
-					Code:        "invalid_client",
-					Description: "username is already taken",
-				},
-			}
-			//TODO: Check if email is unique and add error handling.
-
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
-			}
-			return
+		u := &data.User{
+			Username: username,
+			Email:    email,
+			Password: password,
 		}
+		err := data.Insert(db, u)
+		if err != nil {
+			if err == data.ErrRecordExist {
+				return badRequest(w, errorMsg{err.Code, err.Desc})
+			}
+			return serverError(w, r, err)
+		}
+
+		respondJSON(w, http.StatusCreated, u)
 	}
 }
 
 // POST /oauth/token
-// Query: grant_type, username, password
+// Params: grant_type, login, password
 func UserToken(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		var respErr data.Error
-		var user data.User
 
-		q := map[string]string{
-			"grant_type": r.URL.Query().Get("grant_type"),
-			"username":   r.URL.Query().Get("username"),
-			"password":   r.URL.Query().Get("password"),
+		if r.FormValue("grant_type") != "password" {
+			return badRequest(w, errorMsg{"unsupported_grant_type", "supports only password grant type"})
 		}
 
-		user.Username = q["username"]
+		login := r.FormValue("login")
+		if login == "" {
+			return badRequest(w, errorMsg{"invalid_request", "login required"})
+		}
 
-		// sanitizeQuery() checks if all and only required params are included.
-		respErr = utils.SanitizeQuery(r, q)
-		if respErr != (data.Error{}) {
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
+		password := r.FormValue("password")
+		if password == "" {
+			return badRequest(w, errorMsg{"invalid_request", "password required"})
+		}
+
+		u := data.User{}
+		if err := u.FindByLogin(db, login); err != nil {
+			if err == data.ErrRecordNotFound {
+				return badRequest(w, errorMsg{"invalid_grant", "user not found"})
 			}
-			return
+			return serverError(w, r, err)
 		}
 
-		if q["grant_type"] != "password" {
-			respErr = data.Error{
-				data.ErrorInfo{
-					Code:        "invalid_request",
-					Description: "Invalid 'grant_type' value. 'grant_type' should be set to 'password'",
-				},
-			}
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
-			}
-			return
+		if !u.Verify(db, password) {
+			return badRequest(w, errorMsg{"invalid_grant", "failed to authenticate user"})
 		}
 
-		// Check if user exists.
-		if user.GetByUsername(db).Username == "" {
-			respErr = data.Error{
-				data.ErrorInfo{
-					Code:        "invalid_client",
-					Description: "invalid user credentials: user does not exist",
-				},
-			}
-
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
-			}
-			return
-		} else {
-			err := bcrypt.CompareHashAndPassword(user.GetByUsername(db).Password, []byte(q["password"]))
-			if err != nil {
-				respErr = data.Error{
-					data.ErrorInfo{
-						Code:        "invalid_client",
-						Description: "invalid user credentials: password and user do not match",
-					},
-				}
-
-				if err := utils.RespJSON(w, respErr, 400); err != nil {
-					fmt.Println(err)
-				}
-				return
-			}
+		// Since all is well, generate token and add to database
+		t := data.Token{
+			UserID:    u.ID,
+			ExpiresIn: 30 * 24 * time.Hour, // 30 days
+		}
+		err := data.Insert(db, t)
+		if err != nil {
+			return serverError(w, r, err)
 		}
 
-		// Since all is well, generate token and add to database if token has not been set.
-		if user.GetByUsername(db).Token == "" {
-			user.SetToken(db)
+		// encode the token as a JSON Web token
+		jt := jwt.New(jwt.SigningMethodHS256)
+		jt.Claims["iat"] = t.CreatedAt.Unix()                  // issued at
+		jt.Claims["exp"] = t.CreatedAt.Add(t.ExpiresIn).Unix() // expires at
+		jt.Claims["jti"] = t.ID                                // token ID
+		jt.Claims["user_id"] = t.UserID
+		jt.Claims["scope"] = []string{"user", "hub", "app"}
+		jtStr, err := jt.SignedString(tokenSecret)
+		if err != nil {
+			return serverError(w, r, err)
 		}
 
-		// NOTE: Left out scope and refresh_token.
-		resp := data.Token{
-			data.TokenInfo{
-				AccessToken: user.GetByUsername(db).Token,
-				TokenType:   "bearer",
-				ExpiresIn:   2592000, // 30 days.
-			},
+		// prepare oAuth2 access token payload
+		payload := struct {
+			accessToken string "json:access_token"
+			tokenType   string "json:token_type"
+			expiresIn   string "json:expires_in"
+		}{
+			jtStr,
+			"bearer",
+			t.ExpiresIn,
 		}
 
-		if err := utils.RespJSON(w, resp, 200); err != nil {
-			fmt.Println(err)
-		}
+		respondJSON(w, http.StatusOK, payload)
 	}
 }
