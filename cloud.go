@@ -35,9 +35,7 @@ func main() {
 	r := router.New()
 
 	// default handlers are applied to all routes
-	r.Default(
-		handlers.SetContext(db, tokenSecret),
-	)
+	r.Default(handlers.SetConfig(db, tokenSecret))
 
 	// unauthenticated routes
 	r.POST("/signup", handlers.Signup)
