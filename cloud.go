@@ -1,11 +1,11 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/ripple-cloud/cloud/handlers"
 	"github.com/ripple-cloud/cloud/router"
@@ -26,7 +26,7 @@ func init() {
 }
 
 func main() {
-	db, err := sql.Open("postgres", dbURL)
+	db, err := sqlx.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatal(err)
 	}

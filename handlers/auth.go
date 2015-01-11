@@ -12,21 +12,10 @@ import (
 	"github.com/ripple-cloud/cloud/router"
 )
 
-// A Middleware handler usually changes the context and pass the request to the next handler.
-// It may decide to respond early if the request can't be fulfiled (eg: authentication failure).
-
 var scopeRegex *regexp.Regexp
 
 func init() {
 	scopeRegex = regexp.MustCompile(`^(?:/api/v\d/)([^/]+)(.*)$`) // eg: /api/v0/hub/list || /api/v0/app
-}
-
-func SetContext(db *sqlx.DB, tokenSecret string) router.Handle {
-	return func(w http.ResponseWriter, r *http.Request, c router.Context) {
-		c.Meta["db"] = db
-		c.Meta["tokenSecret"] = secret
-		c.Next(w, r, c)
-	}
 }
 
 func Auth(w http.ResponseWriter, r *http.Request, c router.Context) {
