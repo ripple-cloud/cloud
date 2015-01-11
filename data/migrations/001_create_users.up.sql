@@ -1,8 +1,10 @@
 CREATE TABLE users (
-  id serial primary key,
-  username varchar(255) not null unique,
-  email varchar(255) not null unique,
-  password varchar(255) not null,
-  token varchar(255),
-  created_at timestamp not null
+  id bigserial PRIMARY KEY NOT NULL,
+  username varchar(255) NOT NULL UNIQUE,
+  email varchar(255) NOT NULL UNIQUE,
+  encrypted_password varchar(255) NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now()
 );
+CREATE UNIQUE INDEX index_users_on_username ON users USING btree (username);
+CREATE UNIQUE INDEX index_users_on_email ON users USING btree (email);
