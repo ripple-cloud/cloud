@@ -3,7 +3,6 @@ package router_test
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -99,12 +98,12 @@ func TestRouter(t *testing.T) {
 	for _, tc := range tCases {
 		res, err := http.Get(ts.URL + tc.path)
 		if err != nil {
-			log.Fatal(err)
+			t.Fatal(err)
 		}
 		b, err := ioutil.ReadAll(res.Body)
 		res.Body.Close()
 		if err != nil {
-			log.Fatal(err)
+			t.Fatal(err)
 		}
 		if body := string(b); body != tc.body {
 			t.Errorf("%s - Expected %s, Got %s", tc.path, tc.body, body)
