@@ -36,8 +36,7 @@ func main() {
 
 	// default handlers are applied to all routes
 	r.Default(
-		handlers.SetDB(db),
-		handlers.SetTokenSecret(tokenSecret),
+		handlers.SetContext(db, tokenSecret),
 	)
 
 	// unauthenticated routes

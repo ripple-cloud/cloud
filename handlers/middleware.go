@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 	"regexp"
@@ -22,15 +21,9 @@ func init() {
 	scopeRegex = regexp.MustCompile(`^(?:/api/v\d/)([^/]+)(.*)$`) // eg: /api/v0/hub/list || /api/v0/app
 }
 
-func SetDB(db *sql.DB) router.Handle {
+func SetContext(db *sqlx.DB, tokenSecret string) router.Handle {
 	return func(w http.ResponseWriter, r *http.Request, c router.Context) {
 		c.Meta["db"] = db
-		c.Next(w, r, c)
-	}
-}
-
-func SetTokenSecret(secret string) router.Handle {
-	return func(w http.ResponseWriter, r *http.Request, c router.Context) {
 		c.Meta["tokenSecret"] = secret
 		c.Next(w, r, c)
 	}
