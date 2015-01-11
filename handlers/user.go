@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/ripple-cloud/cloud/data"
 	res "github.com/ripple-cloud/cloud/jsonrespond"
@@ -16,7 +17,7 @@ import (
 var tokenSecret string
 
 func init() {
-	tokenSecret = os.GetEnv("TOKEN_SECRET")
+	tokenSecret = os.Getenv("TOKEN_SECRET")
 	if tokenSecret == "" {
 		panic("TOKEN_SECRET is not set")
 	}
@@ -25,7 +26,7 @@ func init() {
 // POST /signup
 // Params: username, email, password
 func Signup(w http.ResponseWriter, r *http.Request, c router.Context) {
-	db, ok := c.Meta["db"].(*sql.DB)
+	db, ok := c.Meta["db"].(*sqlx.DB)
 	if !ok {
 		log.Print("[error] signup: DB not set in context")
 		res.ServerError(w, res.ErrorMsg{"internal_server_error", "Something went wrong"})
@@ -34,31 +35,36 @@ func Signup(w http.ResponseWriter, r *http.Request, c router.Context) {
 
 	username := r.FormValue("username")
 	if username == "" {
-		res.BadRequest(w, errorMsg{"username_required", "username required"})
+		res.BadRequest(w, res.ErrorMsg{"username_required", "username required"})
 		return
 	}
 
 	email := r.FormValue("email")
 	if email == "" {
-		res.BadRequest(w, errorMsg{"email_required", "email required"})
+		res.BadRequest(w, res.ErrorMsg{"email_required", "email required"})
 		return
 	}
 
 	password := r.FormValue("password")
 	if password == "" {
-		res.BadRequest(w, errorMsg{"password_required", "password required"})
+		res.BadRequest(w, res.ErrorMsg{"password_required", "password required"})
 		return
 	}
 
 	u := &data.User{
 		Username: username,
 		Email:    email,
-		Password: password,
 	}
-	err := data.Insert(db, u)
+	err := u.EncryptPassword(password)
 	if err != nil {
-		if err == data.ErrRecordExist {
-			res.BadRequest(w, errorMsg{err.Code, err.Desc})
+		log.Printf("[error] signup: %s", err)
+		res.ServerError(w, res.ErrorMsg{"internal_server_error", "Something went wrong"})
+		return
+	}
+	err = u.Insert(db)
+	if err != nil {
+		if e, ok := err.(*data.Error); ok {
+			res.BadRequest(w, res.ErrorMsg{e.Code, e.Desc})
 			return
 		}
 		log.Printf("[error] signup: %s", err)
@@ -73,7 +79,7 @@ func Signup(w http.ResponseWriter, r *http.Request, c router.Context) {
 // Params: grant_type, login, password
 // Requires a tokenSecret to be set in context
 func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) {
-	db, ok := c.Meta["db"].(*sql.DB)
+	db, ok := c.Meta["db"].(*sqlx.DB)
 	if !ok {
 		log.Print("[error] signup: DB not set in context")
 		res.ServerError(w, res.ErrorMsg{"internal_server_error", "Something went wrong"})
@@ -87,35 +93,36 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) {
 	}
 
 	if r.FormValue("grant_type") != "password" {
-		res.BadRequest(w, errorMsg{"unsupported_grant_type", "supports only password grant type"})
+		res.BadRequest(w, res.ErrorMsg{"unsupported_grant_type", "supports only password grant type"})
 		return
 	}
 
 	login := r.FormValue("login")
 	if login == "" {
-		res.BadRequest(w, errorMsg{"invalid_request", "login required"})
+		res.BadRequest(w, res.ErrorMsg{"invalid_request", "login required"})
 		return
 	}
 
 	password := r.FormValue("password")
 	if password == "" {
-		res.BadRequest(w, errorMsg{"invalid_request", "password required"})
+		res.BadRequest(w, res.ErrorMsg{"invalid_request", "password required"})
 		return
 	}
 
 	u := data.User{}
-	if err := u.FindByLogin(db, login); err != nil {
-		if err == data.ErrRecordNotFound {
-			res.BadRequest(w, errorMsg{"invalid_grant", "user not found"})
+	if err := u.GetByLogin(db, login); err != nil {
+		if e, ok := err.(*data.Error); ok {
+			res.BadRequest(w, res.ErrorMsg{"invalid_grant", e.Desc})
 			return
 		}
 		log.Print("[error] userToken: %s", err)
-		res.ServerError(w, r, res.ErrorMsg{"internal_server_error", "Something went wrong"})
+		res.ServerError(w, res.ErrorMsg{"internal_server_error", "Something went wrong"})
 		return
 	}
 
 	if !u.Verify(db, password) {
-		return res.BadRequest(w, errorMsg{"invalid_grant", "failed to authenticate user"})
+		res.BadRequest(w, res.ErrorMsg{"invalid_grant", "failed to authenticate user"})
+		return
 	}
 
 	// Since all is well, generate token and add to database
@@ -123,10 +130,10 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) {
 		UserID:    u.ID,
 		ExpiresIn: 30 * 24 * time.Hour, // 30 days
 	}
-	err := data.Insert(db, t)
+	err := t.Insert(db)
 	if err != nil {
 		log.Print("[error] userToken: %s", err)
-		res.ServerError(w, r, res.ErrorMsg{"internal_server_error", "Something went wrong"})
+		res.ServerError(w, res.ErrorMsg{"internal_server_error", "Something went wrong"})
 		return
 	}
 
@@ -140,7 +147,7 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) {
 	jtStr, err := jt.SignedString(tokenSecret)
 	if err != nil {
 		log.Print("[error] userToken: %s", err)
-		res.ServerError(w, r, res.ErrorMsg{"internal_server_error", "Something went wrong"})
+		res.ServerError(w, res.ErrorMsg{"internal_server_error", "Something went wrong"})
 		return
 	}
 
@@ -152,7 +159,7 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) {
 	}{
 		jtStr,
 		"bearer",
-		t.ExpiresIn,
+		t.ExpiresIn.String(),
 	}
 
 	res.Respond(w, http.StatusOK, payload)

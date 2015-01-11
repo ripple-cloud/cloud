@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"regexp"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/jmoiron/sqlx"
 	"github.com/ripple-cloud/cloud/data"
 	res "github.com/ripple-cloud/cloud/jsonrespond"
 	"github.com/ripple-cloud/cloud/router"
@@ -35,7 +37,7 @@ func SetTokenSecret(secret string) router.Handle {
 }
 
 func Auth(w http.ResponseWriter, r *http.Request, c router.Context) {
-	db := c.Meta["db"].(*sql.DB)
+	db := c.Meta["db"].(*sqlx.DB)
 	tokenSecret := c.Meta["tokenSecret"].(string)
 
 	// parse the token param
@@ -44,30 +46,40 @@ func Auth(w http.ResponseWriter, r *http.Request, c router.Context) {
 	})
 
 	if err != nil {
-		res.Unauthorized(w, errorMsg{"invalid_token", err.Error()})
+		res.Unauthorized(w, res.ErrorMsg{"invalid_token", err.Error()})
+		return
 	}
 
 	// check if the token is eligible for current scope
-	path := r.URL.Path
-	scope := scopeRegex.FindStringSubmatch(path)[1]
-	scopes := token.Claims["scopes"]
+	scope := scopeRegex.FindStringSubmatch(r.URL.Path)[1]
+	scopes := token.Claims["scopes"].([]string)
 
-	if !contains(token.Claims["scopes"], scope) {
-		res.Forbidden(w, errorMsg{"invalid_scope", "token is not valid for scope"})
+	if !contains(scopes, scope) {
+		res.Forbidden(w, res.ErrorMsg{"invalid_scope", "token is not valid for scope"})
 	}
 
 	// check if the token was revoked from DB
 	t := data.Token{}
-	t.Get(db, token.jti)
-	if t.Revoked() {
-		res.Unauthorized(w, errorMsg{"invalid_token", "token is not valid"})
+	err = t.Get(db, token.Claims["jti"].(int64))
+	if err != nil {
+		if _, ok := err.(*data.Error); ok {
+			res.Unauthorized(w, res.ErrorMsg{"invalid_token", "token is not valid"})
+			return
+		}
+		log.Print("[error] auth: %s", err)
+		res.ServerError(w, res.ErrorMsg{"internal_server_error", "Something went wrong"})
+		return
+	}
+	if t.RevokedAt != nil {
+		res.Unauthorized(w, res.ErrorMsg{"invalid_token", "token is not valid"})
+		return
 	}
 
 	// valid token
 	// set the user id to context and pass to next handler
 	c.Meta["user_id"] = t.UserID
 
-	c.Next()
+	c.Next(w, r, c)
 }
 
 func contains(col []string, val string) bool {

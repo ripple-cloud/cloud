@@ -2,99 +2,54 @@ package data
 
 import (
 	"database/sql"
-	"fmt"
-	"math/rand"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
-	ID        string
-	Username  string
-	Email     string
-	Password  []byte
-	Token     string
-	CreatedAt time.Time
+	ID                int64      `db:"id"`
+	Username          string     `db:"username"`
+	Email             string     `db:"email"`
+	EncryptedPassword string     `db:"encrypted_password"`
+	CreatedAt         *time.Time `db:"created_at"`
+	UpdatedAt         *time.Time `db:"updated_at"`
 }
 
-func (user User) Add(db *sql.DB) {
-	stmt, err := db.Prepare("INSERT into users (username, email, password, token, created_at) values ($1, $2, $3, $4, $5)")
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(user.Username, user.Email, user.Password, user.Token, user.CreatedAt)
-	if err != nil {
-		fmt.Println(err)
-	}
+func (u *User) EncryptPassword(password string) error {
+	// TODO: implement
+	return nil
 }
 
-func (user *User) GetByID(db *sql.DB) *User {
-	rows, err := db.Query("SELECT id, username, email, password, token, created_at FROM users WHERE id = $1", user.ID)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	u := &User{}
-	for rows.Next() {
-		err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password, &u.Token, &u.CreatedAt)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-	return u
+func (u *User) Verify(db *sqlx.DB, password string) bool {
+	return false
 }
 
-func (user *User) GetByToken(db *sql.DB) *User {
-	rows, err := db.Query("SELECT id, username, email, password, token, created_at FROM users WHERE token = $1", user.Token)
+func (u *User) Insert(db *sqlx.DB) error {
+	nstmt, err := db.PrepareNamed(`INSERT INTO users
+	(username, email, encrypted_password)
+	VALUES (:username, :email, :encrypted_password)
+	RETURNING *;
+	`)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
+	defer nstmt.Close()
 
-	u := &User{}
-	for rows.Next() {
-		err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password, &u.Token, &u.CreatedAt)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-	return u
+	err = nstmt.QueryRow(u).StructScan(u)
+	//TODO: handle the possible error cases (like record not unique)
+	return err
 }
 
-func (user User) SetToken(db *sql.DB) {
-	stmt, err := db.Prepare("UPDATE users SET token = $1 WHERE username = $2")
-	if err != nil {
-		fmt.Println(err)
-		return
+func (u *User) GetByLogin(db *sqlx.DB, login string) error {
+	err := db.Get(u, "SELECT * FROM users WHERE username = $1 OR email = $1 LIMIT 1;", login)
+	switch err {
+	case nil:
+		return nil
+	case sql.ErrNoRows:
+		return &Error{"record_not_found", "user not found"}
+	default:
+		return err
 	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(generateToken(), user.Username)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-// TODO: base64?
-func generateToken() string {
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	char := []rune("abcdefghijklmnopqrstuvwxyz0123456789")
-	b := make([]rune, 64)
-	for i := range b {
-		b[i] = char[rand.Intn(len(char))]
-	}
-
-	return string(b)
-}
-
-func Encrypt(plaintext string) []byte {
-	cryptext, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
-	if err != nil {
-		panic(err)
-	}
-	return cryptext
 }

@@ -19,7 +19,7 @@ func init() {
 		panic("DB_URL not set")
 	}
 
-	tokenSecret = os.GetEnv("TOKEN_SECRET")
+	tokenSecret = os.Getenv("TOKEN_SECRET")
 	if tokenSecret == "" {
 		panic("TOKEN_SECRET is not set")
 	}
@@ -45,9 +45,9 @@ func main() {
 	r.POST("/oauth/token", handlers.UserToken)
 
 	// authenticated routes
-	r.POST("/api/v0/hub", handlers.Auth, handlers.AddHub)
-	r.GET("/api/v0/hub", handlers.Auth, handlers.ShowHub)
-	r.DELETE("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
+	// r.POST("/api/v0/hub", handlers.Auth, handlers.AddHub)
+	// r.GET("/api/v0/hub", handlers.Auth, handlers.ShowHub)
+	// r.DELETE("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
 
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), r))
 }
