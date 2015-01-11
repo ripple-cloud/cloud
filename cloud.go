@@ -23,7 +23,6 @@ func init() {
 	if tokenSecret == "" {
 		panic("TOKEN_SECRET is not set")
 	}
-
 }
 
 func main() {
@@ -36,11 +35,14 @@ func main() {
 	r := router.New()
 
 	// default handlers are applied to all routes
-	r.Default(handlers.SetDB(db))
+	r.Default(
+		handlers.SetDB(db),
+		handlers.SetTokenSecret(tokenSecret),
+	)
 
 	// unauthenticated routes
 	r.POST("/signup", handlers.Signup)
-	r.POST("/oauth/token", handlers.SetTokenSecret(tokenSecret), handlers.UserToken)
+	r.POST("/oauth/token", handlers.UserToken)
 
 	// authenticated routes
 	r.POST("/api/v0/hub", handlers.Auth, handlers.AddHub)
