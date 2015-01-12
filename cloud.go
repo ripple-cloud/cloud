@@ -11,7 +11,7 @@ import (
 	"github.com/ripple-cloud/cloud/router"
 )
 
-var dbURL, tokenSecret string
+var dbURL, tokenSecret, addr string
 
 func init() {
 	dbURL = os.Getenv("DB_URL")
@@ -23,6 +23,12 @@ func init() {
 	if tokenSecret == "" {
 		panic("TOKEN_SECRET is not set")
 	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000" // defaults to port 3000
+	}
+	addr = "0.0.0.0:" + port
 }
 
 func main() {
@@ -46,5 +52,6 @@ func main() {
 	// r.GET("/api/v0/hub", handlers.Auth, handlers.ShowHub)
 	// r.DELETE("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
 
-	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), r))
+	log.Print("[info] Starting server on ", addr)
+	log.Fatal(http.ListenAndServe(addr, r))
 }
