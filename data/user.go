@@ -18,8 +18,10 @@ type User struct {
 	UpdatedAt         *time.Time `db:"updated_at" json:"updated_at"`
 }
 
+// EncryptPassword accepts a password as a string and encrytps it using bcrypt.
+// Encrypted value will be stored in user's EncryptedPassword field.
 func (u *User) EncryptPassword(password string) error {
-	ep, err := bcyrpt.GenerateFromPassword(password, bcrypt.DefaultCost)
+	ep, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
@@ -28,7 +30,7 @@ func (u *User) EncryptPassword(password string) error {
 }
 
 func (u *User) VerifyPassword(password string) bool {
-	if err := bcyrpt.CompareHashAndPassword([]byte(u.EncryptedPassword), []byte(password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(u.EncryptedPassword), []byte(password)); err != nil {
 		return false
 	}
 	return true
@@ -36,8 +38,8 @@ func (u *User) VerifyPassword(password string) bool {
 
 func (u *User) Insert(db *sqlx.DB) error {
 	nstmt, err := db.PrepareNamed(`INSERT INTO users
-	(username, email, encrypted_password)
-	VALUES (:username, :email, :encrypted_password)
+	(username, email, encrypted_password, created_at, updated_at)
+	VALUES (:username, :email, :encrypted_password, now(), now())
 	RETURNING *;
 	`)
 	if err != nil {
