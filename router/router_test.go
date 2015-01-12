@@ -1,6 +1,7 @@
 package router_test
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -15,47 +16,59 @@ func setupServer(tmpDir string) (*httptest.Server, error) {
 	r := router.New()
 
 	// directly access an endpoint
-	r.GET("/endpoint", func(w http.ResponseWriter, r *http.Request, c router.Context) {
-		w.Write([]byte("OK"))
+	r.GET("/endpoint", func(w http.ResponseWriter, r *http.Request, c router.Context) error {
+		_, err := w.Write([]byte("OK"))
+		return err
 	})
 
 	// using handlers to modify the context
 	r.GET("/with_modifiers",
-		func(w http.ResponseWriter, r *http.Request, c router.Context) {
+		func(w http.ResponseWriter, r *http.Request, c router.Context) error {
 			c.Meta["test"] = "OK"
 			// call next handler
-			c.Next(w, r, c)
+			return c.Next(w, r, c)
 		},
-		func(w http.ResponseWriter, r *http.Request, c router.Context) {
+		func(w http.ResponseWriter, r *http.Request, c router.Context) error {
 			o := c.Meta["test"].(string)
-			w.Write([]byte(o))
+			_, err := w.Write([]byte(o))
+			return err
 		})
 
 	// check named params and request form params
-	r.GET("/with_params/:param", func(w http.ResponseWriter, r *http.Request, c router.Context) {
-		fmt.Fprintf(w, "%s %s", c.Params.ByName("param"), r.FormValue("param"))
+	r.GET("/with_params/:param", func(w http.ResponseWriter, r *http.Request, c router.Context) error {
+		_, err := fmt.Fprintf(w, "%s %s", c.Params.ByName("param"), r.FormValue("param"))
+		return err
 	})
 
 	// respond early
 	r.GET("/respond_early",
-		func(w http.ResponseWriter, r *http.Request, c router.Context) {
-			w.Write([]byte("foo"))
+		func(w http.ResponseWriter, r *http.Request, c router.Context) error {
+			_, err := w.Write([]byte("foo"))
+			return err
 		},
-		func(w http.ResponseWriter, r *http.Request, c router.Context) {
-			w.Write([]byte("bar"))
+		func(w http.ResponseWriter, r *http.Request, c router.Context) error {
+			_, err := w.Write([]byte("bar"))
+			return err
 		})
 
 	// default handlers
-	r.Default(func(w http.ResponseWriter, r *http.Request, c router.Context) {
+	r.Default(func(w http.ResponseWriter, r *http.Request, c router.Context) error {
 		c.Meta["default"] = "hello world"
 		// call next handler
-		c.Next(w, r, c)
+		return c.Next(w, r, c)
 	})
 
 	r.GET("/use_default_handler",
-		func(w http.ResponseWriter, r *http.Request, c router.Context) {
+		func(w http.ResponseWriter, r *http.Request, c router.Context) error {
 			o := c.Meta["default"].(string)
-			w.Write([]byte(o))
+			_, err := w.Write([]byte(o))
+			return err
+		})
+
+	// handler returning an error
+	r.GET("/error",
+		func(w http.ResponseWriter, r *http.Request, c router.Context) error {
+			return errors.New("backend failed")
 		})
 
 	// serving static files
@@ -82,17 +95,20 @@ func TestRouter(t *testing.T) {
 	defer ts.Close()
 
 	type testCase struct {
-		path string
-		body string
+		path       string
+		statusCode int
+		body       string
 	}
 
+	// HTTP OK test cases
 	tCases := []testCase{
-		{"/endpoint", "OK"},
-		{"/with_modifiers", "OK"},
-		{"/with_params/foo?param=bar", "foo bar"},
-		{"/respond_early", "foo"},
-		{"/use_default_handler", "hello world"},
-		{"/public/test.txt", "foo bar"},
+		{"/endpoint", http.StatusOK, "OK"},
+		{"/with_modifiers", http.StatusOK, "OK"},
+		{"/with_params/foo?param=bar", http.StatusOK, "foo bar"},
+		{"/respond_early", http.StatusOK, "foo"},
+		{"/use_default_handler", http.StatusOK, "hello world"},
+		{"/error", http.StatusInternalServerError, "something went wrong\n"},
+		{"/public/test.txt", http.StatusOK, "foo bar"},
 	}
 
 	for _, tc := range tCases {
@@ -100,13 +116,16 @@ func TestRouter(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if res.StatusCode != tc.statusCode {
+			t.Errorf("%s - Expected status code %s, Got %s", tc.path, tc.statusCode, res.StatusCode)
+		}
 		b, err := ioutil.ReadAll(res.Body)
 		res.Body.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if body := string(b); body != tc.body {
-			t.Errorf("%s - Expected %s, Got %s", tc.path, tc.body, body)
+			t.Errorf("%s - Expected %v, Got %v", tc.path, tc.body, body)
 		}
 	}
 }

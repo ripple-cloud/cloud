@@ -1,6 +1,7 @@
 package router
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -17,7 +18,7 @@ type Context struct {
 	Meta   map[string]interface{}
 }
 
-type Handle func(w http.ResponseWriter, r *http.Request, c Context)
+type Handle func(w http.ResponseWriter, r *http.Request, c Context) error
 
 func New() *Router {
 	return &Router{httprouter.New(), []Handle{}}
@@ -32,20 +33,24 @@ func (r *Router) Handle(method, path string, handlers ...Handle) {
 
 	handlers = append(r.defaultHandlers, handlers...)
 
-	nextHandler = func(w http.ResponseWriter, r *http.Request, c Context) {
+	nextHandler = func(w http.ResponseWriter, r *http.Request, c Context) error {
 		if len(handlers) == 0 {
-			return
+			return nil
 		}
 		// get the next handler
 		h := handlers[0]
 		// remove the next handler from handlers
 		handlers = handlers[1:]
 		c.Next = nextHandler
-		h(w, r, c)
+		return h(w, r, c)
 	}
 
 	r.Router.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		nextHandler(w, r, Context{p, nil, map[string]interface{}{}})
+		if err := nextHandler(w, r, Context{p, nil, map[string]interface{}{}}); err != nil {
+			// log the error to stdout
+			log.Printf("router: %s", err)
+			http.Error(w, "something went wrong", http.StatusInternalServerError)
+		}
 	})
 }
 

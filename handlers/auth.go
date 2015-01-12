@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"log"
+	"errors"
 	"net/http"
 	"regexp"
 
@@ -18,9 +18,15 @@ func init() {
 	scopeRegex = regexp.MustCompile(`^(?:/api/v\d/)([^/]+)(.*)$`) // eg: /api/v0/hub/list || /api/v0/app
 }
 
-func Auth(w http.ResponseWriter, r *http.Request, c router.Context) {
-	db := c.Meta["db"].(*sqlx.DB)
-	tokenSecret := c.Meta["tokenSecret"].(string)
+func Auth(w http.ResponseWriter, r *http.Request, c router.Context) error {
+	db, ok := c.Meta["db"].(*sqlx.DB)
+	if !ok {
+		return errors.New("db not set in context")
+	}
+	tokenSecret, ok := c.Meta["tokenSecret"].(string)
+	if !ok {
+		return errors.New("token secret not set in context")
+	}
 
 	// parse the token param
 	token, err := jwt.ParseFromRequest(r, func(token *jwt.Token) (interface{}, error) {
@@ -28,8 +34,7 @@ func Auth(w http.ResponseWriter, r *http.Request, c router.Context) {
 	})
 
 	if err != nil {
-		res.Unauthorized(w, res.ErrorMsg{"invalid_token", err.Error()})
-		return
+		return res.Unauthorized(w, res.ErrorMsg{"invalid_token", err.Error()})
 	}
 
 	// check if the token is eligible for current scope
@@ -45,23 +50,19 @@ func Auth(w http.ResponseWriter, r *http.Request, c router.Context) {
 	err = t.Get(db, token.Claims["jti"].(int64))
 	if err != nil {
 		if _, ok := err.(*data.Error); ok {
-			res.Unauthorized(w, res.ErrorMsg{"invalid_token", "token is not valid"})
-			return
+			return res.Unauthorized(w, res.ErrorMsg{"invalid_token", "token is not valid"})
 		}
-		log.Print("[error] auth: %s", err)
-		res.ServerError(w, res.ErrorMsg{"internal_server_error", "Something went wrong"})
-		return
+		return err
 	}
 	if t.RevokedAt != nil {
-		res.Unauthorized(w, res.ErrorMsg{"invalid_token", "token is not valid"})
-		return
+		return res.Unauthorized(w, res.ErrorMsg{"invalid_token", "token is not valid"})
 	}
 
 	// valid token
 	// set the user id to context and pass to next handler
 	c.Meta["user_id"] = t.UserID
 
-	c.Next(w, r, c)
+	return c.Next(w, r, c)
 }
 
 func contains(col []string, val string) bool {

@@ -12,9 +12,9 @@ import (
 // It may decide to respond early if the request can't be fulfiled (eg: authentication failure).
 
 func SetConfig(db *sqlx.DB, tokenSecret string) router.Handle {
-	return func(w http.ResponseWriter, r *http.Request, c router.Context) {
+	return func(w http.ResponseWriter, r *http.Request, c router.Context) error {
 		c.Meta["db"] = db
 		c.Meta["tokenSecret"] = tokenSecret
-		c.Next(w, r, c)
+		return c.Next(w, r, c)
 	}
 }
