@@ -12,7 +12,7 @@ import (
 var dbURL string
 
 func init() {
-	dbURL = os.Getenv("DB_URL")
+	dbURL = os.Getenv("TEST_DB_URL")
 	if dbURL == "" {
 		panic("DB_URL not set")
 	}
