@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -18,12 +19,19 @@ type User struct {
 }
 
 func (u *User) EncryptPassword(password string) error {
-	// TODO: implement
+	ep, err := bcyrpt.GenerateFromPassword(password, bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	u.EncryptedPassword = string(ep)
 	return nil
 }
 
-func (u *User) Verify(db *sqlx.DB, password string) bool {
-	return false
+func (u *User) VerifyPassword(password string) bool {
+	if err := bcyrpt.CompareHashAndPassword([]byte(u.EncryptedPassword), []byte(password)); err != nil {
+		return false
+	}
+	return true
 }
 
 func (u *User) Insert(db *sqlx.DB) error {

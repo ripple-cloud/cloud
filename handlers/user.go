@@ -90,7 +90,7 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
 		return err
 	}
 
-	if !u.Verify(db, password) {
+	if !u.VerifyPassword(password) {
 		return res.BadRequest(w, res.ErrorMsg{"invalid_grant", "failed to authenticate user"})
 	}
 
