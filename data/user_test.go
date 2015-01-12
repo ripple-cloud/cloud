@@ -93,7 +93,7 @@ func TestGetByLogin(t *testing.T) {
 
 	// insert new user
 	u := &data.User{
-		Username:          "chucknorris1",
+		Username:          "chucknorris",
 		Email:             "gmail1@chucknorris.com",
 		EncryptedPassword: "wood-chuck-chuck",
 	}
@@ -103,8 +103,8 @@ func TestGetByLogin(t *testing.T) {
 
 	// query for the inserted user	by username
 	u1 := &data.User{}
-	if err := u1.GetByLogin(db, "chucknorris1"); err != nil {
-		t.Error("Failed to get user with username: chucknorris1")
+	if err := u1.GetByLogin(db, "chucknorris"); err != nil {
+		t.Error("Failed to get user with username: chucknorris")
 	}
 	if u1.ID != u.ID {
 		t.Error("Unexpected user record returned: %v", u1)
@@ -112,8 +112,8 @@ func TestGetByLogin(t *testing.T) {
 
 	// query for the inserted user	by email
 	u2 := &data.User{}
-	if err := u2.GetByLogin(db, "gmail1@chucknorris.com"); err != nil {
-		t.Error("Failed to get user with email: gmail1@chucknorris.com")
+	if err := u2.GetByLogin(db, "gmail@chucknorris.com"); err != nil {
+		t.Error("Failed to get user with email: gmail@chucknorris.com")
 	}
 	if u2.ID != u.ID {
 		t.Error("Unexpected user record returned: %v", u2)
@@ -122,6 +122,50 @@ func TestGetByLogin(t *testing.T) {
 	// query for a non-existing user
 	u3 := &data.User{}
 	err = u3.GetByLogin(db, "jackiechan")
+	e, ok := err.(*data.Error)
+	if !ok {
+		t.Error("Returned error must be of type `data.Error`")
+	}
+	if e.Code != "record_not_found" {
+		t.Error("Error code must be 'record_not_found' but received %s", e.Code)
+	}
+	if e.Desc != "user not found" {
+		t.Error("Error desc must be 'user not found' but received %s", e.Desc)
+	}
+
+	// TODO: Add a test case of other errors (eg: db already closed)
+}
+
+func TestGet(t *testing.T) {
+	// open database
+	db, err := sqlx.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// insert new user
+	u := &data.User{
+		Username:          "chucknorris",
+		Email:             "gmail@chucknorris.com",
+		EncryptedPassword: "wood-chuck-chuck",
+	}
+	if err := u.Insert(db); err != nil {
+		t.Error("Failed to insert user to db: %v", u)
+	}
+
+	// query using an existing user ID
+	u1 := &data.User{}
+	if err := u1.Get(db, u.ID); err != nil {
+		t.Error("Failed to find a user with given ID: %v", u.ID)
+	}
+	if u1.ID != u.ID {
+		t.Error("Unexpected user record returned: %v", u1)
+	}
+
+	// query using a non-existing user ID
+	u2 := &data.User{}
+	err = u2.Get(db, 9999)
 	e, ok := err.(*data.Error)
 	if !ok {
 		t.Error("Returned error must be of type `data.Error`")
