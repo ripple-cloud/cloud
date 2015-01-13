@@ -1,22 +1,11 @@
 package data_test
 
 import (
-	"log"
-	"os"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/ripple-cloud/cloud/data"
+	"github.com/ripple-cloud/cloud/testhelpers"
 )
-
-var dbURL string
-
-func init() {
-	dbURL = os.Getenv("TEST_DB_URL")
-	if dbURL == "" {
-		panic("DB_URL not set")
-	}
-}
 
 func TestEncryptPassword(t *testing.T) {
 	u := &data.User{}
@@ -49,12 +38,8 @@ func TestVerifyPassword(t *testing.T) {
 }
 
 func TestInsert(t *testing.T) {
-	// open database
-	db, err := sqlx.Open("postgres", dbURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+	// setup database
+	db := testhelpers.SetupDB(t)
 
 	// insert new user
 	u := &data.User{
@@ -67,7 +52,6 @@ func TestInsert(t *testing.T) {
 	}
 
 	// check if returned values are scanned back to the struct
-
 	if u.ID == 0 {
 		t.Error("ID must be set")
 	}
@@ -81,20 +65,17 @@ func TestInsert(t *testing.T) {
 	}
 
 	// TODO: Add tests for failure test paths
+	db.Close()
 }
 
 func TestGetByLogin(t *testing.T) {
-	// open database
-	db, err := sqlx.Open("postgres", dbURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+	// setup database
+	db := testhelpers.SetupDB(t)
 
 	// insert new user
 	u := &data.User{
 		Username:          "chucknorris",
-		Email:             "gmail1@chucknorris.com",
+		Email:             "gmail@chucknorris.com",
 		EncryptedPassword: "wood-chuck-chuck",
 	}
 	if err := u.Insert(db); err != nil {
@@ -121,7 +102,7 @@ func TestGetByLogin(t *testing.T) {
 
 	// query for a non-existing user
 	u3 := &data.User{}
-	err = u3.GetByLogin(db, "jackiechan")
+	err := u3.GetByLogin(db, "jackiechan")
 	e, ok := err.(*data.Error)
 	if !ok {
 		t.Error("Returned error must be of type `data.Error`")
@@ -134,15 +115,12 @@ func TestGetByLogin(t *testing.T) {
 	}
 
 	// TODO: Add a test case of other errors (eg: db already closed)
+	db.Close()
 }
 
 func TestGet(t *testing.T) {
-	// open database
-	db, err := sqlx.Open("postgres", dbURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+	// setup database
+	db := testhelpers.SetupDB(t)
 
 	// insert new user
 	u := &data.User{
@@ -165,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	// query using a non-existing user ID
 	u2 := &data.User{}
-	err = u2.Get(db, 9999)
+	err := u2.Get(db, 9999)
 	e, ok := err.(*data.Error)
 	if !ok {
 		t.Error("Returned error must be of type `data.Error`")
@@ -178,4 +156,5 @@ func TestGet(t *testing.T) {
 	}
 
 	// TODO: Add a test case of other errors (eg: db already closed)
+	db.Close()
 }
