@@ -48,7 +48,7 @@ func (r *Router) Handle(method, path string, handlers ...Handle) {
 	r.Router.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		if err := nextHandler(w, r, Context{p, nil, map[string]interface{}{}}); err != nil {
 			// log the error to stdout
-			log.Printf("router: %s", err)
+			log.Println(err)
 			http.Error(w, "something went wrong", http.StatusInternalServerError)
 		}
 	})

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -113,7 +114,7 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	jt.Claims["scopes"] = []string{"user", "hub", "app"}
 	jtStr, err := jt.SignedString(tokenSecret)
 	if err != nil {
-		return err
+		return fmt.Errorf("jwt: %s", err)
 	}
 
 	// prepare oAuth2 access token payload
