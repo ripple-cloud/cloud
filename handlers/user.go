@@ -97,7 +97,7 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	// Since all is well, generate token and add to database
 	t := data.Token{
 		UserID:    u.ID,
-		ExpiresIn: 30 * 24 * time.Hour, // 30 days
+		ExpiresIn: (30 * 24 * time.Hour).Nanoseconds(), // 30 days
 	}
 	err := t.Insert(db)
 	if err != nil {
@@ -106,9 +106,9 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
 
 	// encode the token as a JSON Web token
 	jt := jwt.New(jwt.SigningMethodHS256)
-	jt.Claims["iat"] = t.CreatedAt.Unix()                  // issued at
-	jt.Claims["exp"] = t.CreatedAt.Add(t.ExpiresIn).Unix() // expires at
-	jt.Claims["jti"] = t.ID                                // token ID
+	jt.Claims["iat"] = t.CreatedAt.Unix()                                 // issued at
+	jt.Claims["exp"] = t.CreatedAt.Add(time.Duration(t.ExpiresIn)).Unix() // expires at
+	jt.Claims["jti"] = t.ID                                               // token ID
 	jt.Claims["user_id"] = t.UserID
 	jt.Claims["scopes"] = []string{"user", "hub", "app"}
 	jtStr, err := jt.SignedString(tokenSecret)
@@ -124,7 +124,7 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	}{
 		jtStr,
 		"bearer",
-		t.ExpiresIn.String(),
+		time.Duration(t.ExpiresIn).String(),
 	}
 
 	return res.OK(w, payload)
