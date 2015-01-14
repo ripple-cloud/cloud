@@ -64,7 +64,7 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	if !ok {
 		return errors.New("db not set in context")
 	}
-	tokenSecret, ok := c.Meta["tokenSecret"].(string)
+	tokenSecret, ok := c.Meta["tokenSecret"].([]byte)
 	if !ok {
 		return errors.New("token secret not set in context")
 	}
