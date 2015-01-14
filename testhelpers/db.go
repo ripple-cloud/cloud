@@ -30,7 +30,7 @@ func SetupDB(t *testing.T) *sqlx.DB {
 	}
 
 	// run pending migrations
-	// assumes all migration files are in data package
+	// assumes path for migrations is data/migrations
 	t.Log("Starting database migrations...")
 	pwd, _ := os.Getwd()
 	errs, ok := migrate.UpSync(dbURL, filepath.Join(pwd, "/../data/migrations"))

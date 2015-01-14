@@ -9,9 +9,9 @@ import (
 )
 
 type Token struct {
-	ID        int64         `db:"id"`
-	UserID    int64         `db:"user_id"`
-	ExpiresIn time.Duration `db:"expires_in"`
+	ID        int64 `db:"id"`
+	UserID    int64 `db:"user_id"`
+	ExpiresIn int64 `db:"expires_in"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	RevokedAt *time.Time `db:"revoked_at"`
