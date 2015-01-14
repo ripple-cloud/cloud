@@ -6,8 +6,8 @@ import (
 )
 
 type ErrorMsg struct {
-	Error     string "json:error"
-	ErrorDesc string "json:error_description"
+	Error     string `json:"error"`
+	ErrorDesc string `json:"error_description"`
 }
 
 func Respond(w http.ResponseWriter, code int, payload interface{}) error {

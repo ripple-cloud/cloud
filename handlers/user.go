@@ -119,9 +119,9 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
 
 	// prepare oAuth2 access token payload
 	payload := struct {
-		accessToken string "json:access_token"
-		tokenType   string "json:token_type"
-		expiresIn   string "json:expires_in"
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   string `json:"expires_in"`
 	}{
 		jtStr,
 		"bearer",
