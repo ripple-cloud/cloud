@@ -1,156 +1,132 @@
 package handlers
 
 import (
-	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"code.google.com/p/go.crypto/bcrypt"
-	"github.com/julienschmidt/httprouter"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/ripple-cloud/cloud/data"
-	"github.com/ripple-cloud/cloud/utils"
+	res "github.com/ripple-cloud/cloud/jsonrespond"
+	"github.com/ripple-cloud/cloud/router"
 )
 
 // POST /signup
-// Query: username, email, password
-func Signup(db *sql.DB) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		var respErr data.Error
-
-		q := map[string]string{
-			"username": r.URL.Query().Get("username"),
-			"email":    r.URL.Query().Get("email"),
-			"password": r.URL.Query().Get("password"),
-		}
-
-		// sanitizeQuery() checks if all and only required params are included.
-		respErr = utils.SanitizeQuery(r, q)
-		if respErr != (data.Error{}) {
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
-			}
-			return
-		}
-
-		user := data.User{
-			Username: q["username"],
-		}
-
-		// Validate new user.
-		if user.GetByUsername(db).Username == "" {
-			user := data.User{
-				Username:  user.Username,
-				Email:     q["email"],
-				Password:  data.Encrypt(q["password"]),
-				Token:     "",
-				CreatedAt: time.Now(),
-			}
-			user.Add(db)
-			// TODO: render JSON
-			fmt.Fprint(w, "Successful signup!")
-
-		} else {
-			respErr = data.Error{
-				data.ErrorInfo{
-					Code:        "invalid_client",
-					Description: "username is already taken",
-				},
-			}
-			//TODO: Check if email is unique and add error handling.
-
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
-			}
-			return
-		}
+// Params: username, email, password
+func Signup(w http.ResponseWriter, r *http.Request, c router.Context) error {
+	db, ok := c.Meta["db"].(*sqlx.DB)
+	if !ok {
+		return errors.New("db not set in context")
 	}
+
+	username := r.FormValue("username")
+	if username == "" {
+		return res.BadRequest(w, res.ErrorMsg{"username_required", "username required"})
+	}
+
+	email := r.FormValue("email")
+	if email == "" {
+		return res.BadRequest(w, res.ErrorMsg{"email_required", "email required"})
+	}
+
+	password := r.FormValue("password")
+	if password == "" {
+		return res.BadRequest(w, res.ErrorMsg{"password_required", "password required"})
+	}
+
+	u := &data.User{
+		Username: username,
+		Email:    email,
+	}
+	err := u.EncryptPassword(password)
+	if err != nil {
+		return err
+	}
+	err = u.Insert(db)
+	if err != nil {
+		if e, ok := err.(*data.Error); ok {
+			return res.BadRequest(w, res.ErrorMsg{e.Code, e.Desc})
+		}
+		return err
+	}
+
+	return res.Respond(w, http.StatusCreated, u)
 }
 
 // POST /oauth/token
-// Query: grant_type, username, password
-func UserToken(db *sql.DB) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		var respErr data.Error
-		var user data.User
-
-		q := map[string]string{
-			"grant_type": r.URL.Query().Get("grant_type"),
-			"username":   r.URL.Query().Get("username"),
-			"password":   r.URL.Query().Get("password"),
-		}
-
-		user.Username = q["username"]
-
-		// sanitizeQuery() checks if all and only required params are included.
-		respErr = utils.SanitizeQuery(r, q)
-		if respErr != (data.Error{}) {
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
-			}
-			return
-		}
-
-		if q["grant_type"] != "password" {
-			respErr = data.Error{
-				data.ErrorInfo{
-					Code:        "invalid_request",
-					Description: "Invalid 'grant_type' value. 'grant_type' should be set to 'password'",
-				},
-			}
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
-			}
-			return
-		}
-
-		// Check if user exists.
-		if user.GetByUsername(db).Username == "" {
-			respErr = data.Error{
-				data.ErrorInfo{
-					Code:        "invalid_client",
-					Description: "invalid user credentials: user does not exist",
-				},
-			}
-
-			if err := utils.RespJSON(w, respErr, 400); err != nil {
-				fmt.Println(err)
-			}
-			return
-		} else {
-			err := bcrypt.CompareHashAndPassword(user.GetByUsername(db).Password, []byte(q["password"]))
-			if err != nil {
-				respErr = data.Error{
-					data.ErrorInfo{
-						Code:        "invalid_client",
-						Description: "invalid user credentials: password and user do not match",
-					},
-				}
-
-				if err := utils.RespJSON(w, respErr, 400); err != nil {
-					fmt.Println(err)
-				}
-				return
-			}
-		}
-
-		// Since all is well, generate token and add to database if token has not been set.
-		if user.GetByUsername(db).Token == "" {
-			user.SetToken(db)
-		}
-
-		// NOTE: Left out scope and refresh_token.
-		resp := data.Token{
-			data.TokenInfo{
-				AccessToken: user.GetByUsername(db).Token,
-				TokenType:   "bearer",
-				ExpiresIn:   2592000, // 30 days.
-			},
-		}
-
-		if err := utils.RespJSON(w, resp, 200); err != nil {
-			fmt.Println(err)
-		}
+// Params: grant_type, login, password
+// Requires a tokenSecret to be set in context
+func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
+	db, ok := c.Meta["db"].(*sqlx.DB)
+	if !ok {
+		return errors.New("db not set in context")
 	}
+	tokenSecret, ok := c.Meta["tokenSecret"].([]byte)
+	if !ok {
+		return errors.New("token secret not set in context")
+	}
+
+	if r.FormValue("grant_type") != "password" {
+		return res.BadRequest(w, res.ErrorMsg{"unsupported_grant_type", "supports only password grant type"})
+	}
+
+	login := r.FormValue("login")
+	if login == "" {
+		return res.BadRequest(w, res.ErrorMsg{"invalid_request", "login required"})
+	}
+
+	password := r.FormValue("password")
+	if password == "" {
+		return res.BadRequest(w, res.ErrorMsg{"invalid_request", "password required"})
+	}
+
+	u := data.User{}
+	if err := u.GetByLogin(db, login); err != nil {
+		if e, ok := err.(*data.Error); ok {
+			return res.BadRequest(w, res.ErrorMsg{"invalid_grant", e.Desc})
+		}
+		return err
+	}
+
+	if !u.VerifyPassword(password) {
+		return res.BadRequest(w, res.ErrorMsg{"invalid_grant", "failed to authenticate user"})
+	}
+
+	// Since all is well, generate token and add to database
+	t := data.Token{
+		UserID:    u.ID,
+		ExpiresIn: (30 * 24 * time.Hour).Nanoseconds(), // 30 days
+	}
+	err := t.Insert(db)
+	if err != nil {
+		return err
+	}
+
+	// encode the token as a JSON Web token
+	jt := jwt.New(jwt.SigningMethodHS256)
+	jt.Claims["iat"] = t.CreatedAt.Unix()                                 // issued at
+	jt.Claims["exp"] = t.CreatedAt.Add(time.Duration(t.ExpiresIn)).Unix() // expires at
+	jt.Claims["jti"] = t.ID                                               // token ID
+	jt.Claims["user_id"] = t.UserID
+	jt.Claims["scopes"] = []string{"user", "hub", "app"}
+	jtStr, err := jt.SignedString(tokenSecret)
+	if err != nil {
+		return fmt.Errorf("jwt: %s", err)
+	}
+
+	// prepare oAuth2 access token payload
+	payload := struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   string `json:"expires_in"`
+	}{
+		jtStr,
+		"bearer",
+		time.Duration(t.ExpiresIn).String(),
+	}
+
+	return res.OK(w, payload)
 }
