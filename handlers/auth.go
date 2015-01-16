@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/jmoiron/sqlx"
@@ -32,22 +33,21 @@ func Auth(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	token, err := jwt.ParseFromRequest(r, func(token *jwt.Token) (interface{}, error) {
 		return tokenSecret, nil
 	})
-
 	if err != nil {
 		return res.Unauthorized(w, res.ErrorMsg{"invalid_token", err.Error()})
 	}
 
 	// check if the token is eligible for current scope
 	scope := scopeRegex.FindStringSubmatch(r.URL.Path)[1]
-	scopes := token.Claims["scopes"].([]string)
+	scopes := token.Claims["scopes"].(string)
 
-	if !contains(scopes, scope) {
-		res.Forbidden(w, res.ErrorMsg{"invalid_scope", "token is not valid for scope"})
+	if !contains(strings.Split(scopes, ","), scope) {
+		return res.Forbidden(w, res.ErrorMsg{"invalid_scope", "token is not valid for this scope"})
 	}
 
 	// check if the token was revoked from DB
 	t := data.Token{}
-	err = t.Get(db, token.Claims["jti"].(int64))
+	err = t.Get(db, int64(token.Claims["jti"].(float64)))
 	if err != nil {
 		if _, ok := err.(*data.Error); ok {
 			return res.Unauthorized(w, res.ErrorMsg{"invalid_token", "token is not valid"})

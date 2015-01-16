@@ -30,22 +30,25 @@ func (r *Router) Default(handlers ...Handle) {
 
 func (r *Router) Handle(method, path string, handlers ...Handle) {
 	var nextHandler Handle
-
-	handlers = append(r.defaultHandlers, handlers...)
-
-	nextHandler = func(w http.ResponseWriter, r *http.Request, c Context) error {
-		if len(handlers) == 0 {
-			return nil
-		}
-		// get the next handler
-		h := handlers[0]
-		// remove the next handler from handlers
-		handlers = handlers[1:]
-		c.Next = nextHandler
-		return h(w, r, c)
-	}
+	defaultHandlers := r.defaultHandlers
 
 	r.Router.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		hs := []Handle{}
+		hs = append(hs, defaultHandlers...)
+		hs = append(hs, handlers...)
+
+		nextHandler = func(w http.ResponseWriter, r *http.Request, c Context) error {
+			if len(hs) == 0 {
+				return nil
+			}
+			// get the next handler
+			h := hs[0]
+			// remove the next handler from handlers
+			hs = hs[1:]
+			c.Next = nextHandler
+			return h(w, r, c)
+		}
+
 		if err := nextHandler(w, r, Context{p, nil, map[string]interface{}{}}); err != nil {
 			// log the error to stdout
 			log.Println(err)

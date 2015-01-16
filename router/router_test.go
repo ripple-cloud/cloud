@@ -40,8 +40,8 @@ func setupServer(tmpDir string) (*httptest.Server, error) {
 		return err
 	})
 
-	// respond early
-	r.GET("/respond_early",
+	// check for idempotency
+	r.GET("/idempotent",
 		func(w http.ResponseWriter, r *http.Request, c router.Context) error {
 			_, err := w.Write([]byte("foo"))
 			return err
@@ -105,10 +105,13 @@ func TestRouter(t *testing.T) {
 		{"/endpoint", http.StatusOK, "OK"},
 		{"/with_modifiers", http.StatusOK, "OK"},
 		{"/with_params/foo?param=bar", http.StatusOK, "foo bar"},
-		{"/respond_early", http.StatusOK, "foo"},
 		{"/use_default_handler", http.StatusOK, "hello world"},
 		{"/error", http.StatusInternalServerError, "something went wrong\n"},
 		{"/public/test.txt", http.StatusOK, "foo bar"},
+
+		// test for idempotency (http://en.wikipedia.org/wiki/Idempotence)
+		{"/idempotent", http.StatusOK, "foo"},
+		{"/idempotent", http.StatusOK, "foo"},
 	}
 
 	for _, tc := range tCases {
@@ -125,7 +128,7 @@ func TestRouter(t *testing.T) {
 			t.Fatal(err)
 		}
 		if body := string(b); body != tc.body {
-			t.Errorf("%s - Expected %v, Got %v", tc.path, tc.body, body)
+			t.Errorf("%s - Expected response body to be %v, Got %v", tc.path, tc.body, body)
 		}
 	}
 }

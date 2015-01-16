@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -43,4 +44,16 @@ func (t *Token) Get(db *sqlx.DB, id int64) error {
 	default:
 		return err
 	}
+}
+
+// Encode JWT will return the current token encoded as a JSON web token.
+// Note the encoded token is not persisted
+func (t *Token) EncodeJWT(tokenSecret []byte) (string, error) {
+	j := jwt.New(jwt.SigningMethodHS256)
+	j.Claims["iat"] = t.CreatedAt.Unix()                                 // issued at
+	j.Claims["exp"] = t.CreatedAt.Add(time.Duration(t.ExpiresIn)).Unix() // expires at
+	j.Claims["jti"] = t.ID                                               // token ID
+	j.Claims["user_id"] = t.UserID
+	j.Claims["scopes"] = "user,hub,app" // FIXME: should not be hardcoded
+	return j.SignedString(tokenSecret)
 }
