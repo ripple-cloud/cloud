@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/ripple-cloud/cloud/data"
@@ -41,12 +39,10 @@ func Signup(w http.ResponseWriter, r *http.Request, c router.Context) error {
 		Username: username,
 		Email:    email,
 	}
-	err := u.EncryptPassword(password)
-	if err != nil {
+	if err := u.EncryptPassword(password); err != nil {
 		return err
 	}
-	err = u.Insert(db)
-	if err != nil {
+	if err := u.Insert(db); err != nil {
 		if e, ok := err.(*data.Error); ok {
 			return res.BadRequest(w, res.ErrorMsg{e.Code, e.Desc})
 		}
@@ -100,21 +96,14 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
 		UserID:    u.ID,
 		ExpiresIn: (30 * 24 * time.Hour).Nanoseconds(), // 30 days
 	}
-	err := t.Insert(db)
-	if err != nil {
+	if err := t.Insert(db); err != nil {
 		return err
 	}
 
-	// encode the token as a JSON Web token
-	jt := jwt.New(jwt.SigningMethodHS256)
-	jt.Claims["iat"] = t.CreatedAt.Unix()                                 // issued at
-	jt.Claims["exp"] = t.CreatedAt.Add(time.Duration(t.ExpiresIn)).Unix() // expires at
-	jt.Claims["jti"] = t.ID                                               // token ID
-	jt.Claims["user_id"] = t.UserID
-	jt.Claims["scopes"] = []string{"user", "hub", "app"}
-	jtStr, err := jt.SignedString(tokenSecret)
+	// get the encoded JSON Web token
+	jwt, err := t.EncodeJWT(tokenSecret)
 	if err != nil {
-		return fmt.Errorf("jwt: %s", err)
+		return err
 	}
 
 	// prepare oAuth2 access token payload
@@ -123,7 +112,7 @@ func UserToken(w http.ResponseWriter, r *http.Request, c router.Context) error {
 		TokenType   string `json:"token_type"`
 		ExpiresIn   string `json:"expires_in"`
 	}{
-		jtStr,
+		jwt,
 		"bearer",
 		time.Duration(t.ExpiresIn).String(),
 	}
