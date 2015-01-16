@@ -1,20 +1,37 @@
 package data
 
-//
-// import (
-// 	"database/sql"
-// 	"fmt"
-// 	"log"
-//
-// 	_ "github.com/lib/pq"
-// )
-//
-// type Hub struct {
-// 	ID     string
-// 	Hub    string
-// 	UserID string
-// }
-//
+import (
+	//	"database/sql"
+	"time"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
+)
+
+type Hub struct {
+	ID        int64      `db:"id" json:"id"`
+	Hub       string     `db:"hub" json:"hub"`
+	UserID    int64      `db:"user_id" json:"user_id"`
+	CreatedAt *time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at" json:"updated_at"`
+}
+
+func (h *Hub) Insert(db *sqlx.DB) error {
+	nstmt, err := db.PrepareNamed(`INSERT INTO hubs 
+	(hub, user_id, created_at, updated_at)
+	VALUES (:hub, :user_id, now(), now())
+	RETURNING *;
+	`)
+	if err != nil {
+		return err
+	}
+	defer nstmt.Close()
+
+	err = nstmt.QueryRow(h).StructScan(h)
+	//TODO: handle the possible error cases (like record not unique)
+	return err
+}
+
 // func (hub *Hub) Add(db *sql.DB) {
 // 	stmt, err := db.Prepare("INSERT into hubs (hub, user_id) values ($1, $2)")
 // 	if err != nil {

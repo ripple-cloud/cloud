@@ -1,16 +1,52 @@
 package handlers
 
-//
-// import (
-// 	"database/sql"
-// 	"fmt"
-// 	"net/http"
-//
-// 	"github.com/julienschmidt/httprouter"
-// 	"github.com/ripple-cloud/cloud/data"
-// 	"github.com/ripple-cloud/cloud/utils"
-// )
-//
+import (
+	"errors"
+	"net/http"
+
+	"github.com/jmoiron/sqlx"
+
+	"github.com/ripple-cloud/cloud/data"
+	res "github.com/ripple-cloud/cloud/jsonrespond"
+	"github.com/ripple-cloud/cloud/router"
+)
+
+// POST /oauth/token
+// Query: grant_type must be "urn:ietf:params:oauth:grant-type:jwt-bearer"
+// access_token: JWT token
+// hub: hub id
+// scope?
+func AddHub(w http.ResponseWriter, r *http.Request, c router.Context) error {
+	db, _ := c.Meta["db"].(*sqlx.DB)
+
+	hub := r.FormValue("hub")
+	if hub == "" {
+		return res.BadRequest(w, res.ErrorMsg{"invalid_request", "hub required"})
+	}
+
+	if r.FormValue("grant_type") != "urn:ietf:params:oauth:grant-type:jwt-bearer" {
+		return res.BadRequest(w, res.ErrorMsg{"invalid_request", "grant_type required"})
+	}
+
+	// Since all is well, add hub to database
+	h := data.Hub{
+		Hub:    hub,
+		UserID: c.Meta["user_id"].(int64),
+	}
+	if err := h.Insert(db); err != nil {
+		return err
+	}
+
+	// prepare oAuth2 access token payload
+	payload := struct {
+		Hub string `json:"hub"`
+	}{
+		hub,
+	}
+
+	return res.OK(w, payload)
+}
+
 // // POST /api/add
 // // Query: hub, token.
 // func AddHub(db *sql.DB) httprouter.Handle {
