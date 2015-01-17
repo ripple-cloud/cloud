@@ -26,6 +26,14 @@ func OK(w http.ResponseWriter, payload interface{}) error {
 	return Respond(w, http.StatusOK, payload)
 }
 
+func Created(w http.ResponseWriter, payload interface{}) error {
+	return Respond(w, http.StatusCreated, payload)
+}
+
+func NotFound(w http.ResponseWriter, err ErrorMsg) error {
+	return Respond(w, http.StatusNotFound, err)
+}
+
 func BadRequest(w http.ResponseWriter, err ErrorMsg) error {
 	return Respond(w, http.StatusBadRequest, err)
 }
