@@ -27,7 +27,6 @@ func (a *App) Insert(db *sqlx.DB) error {
 	defer nstmt.Close()
 
 	err = nstmt.QueryRow(a).StructScan(a)
-	//TODO: handle the possible error cases (like record not unique)
 	return err
 }
 
