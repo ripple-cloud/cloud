@@ -19,7 +19,7 @@ func TestTokenInsert(t *testing.T) {
 		EncryptedPassword: "wood-chuck-chuck",
 	}
 	if err := u.Insert(db); err != nil {
-		t.Error("Failed to insert user to db: %v", u)
+		t.Error("Failed to insert user to db: %v", err)
 	}
 
 	// insert a new token for the user
@@ -28,7 +28,7 @@ func TestTokenInsert(t *testing.T) {
 		ExpiresIn: (30 * 24 * time.Hour).Nanoseconds(),
 	}
 	if err := tok.Insert(db); err != nil {
-		t.Error("Failed to insert token to db: %v", u)
+		t.Error("Failed to insert token to db: %v", err)
 	}
 
 	// check if returned values are scanned back to the struct
@@ -68,7 +68,7 @@ func TestTokenGet(t *testing.T) {
 		EncryptedPassword: "wood-chuck-chuck",
 	}
 	if err := u.Insert(db); err != nil {
-		t.Error("Failed to insert user to db: %v", u)
+		t.Error("Failed to insert user to db: %v", err)
 	}
 
 	// insert a new token for the user
@@ -77,7 +77,7 @@ func TestTokenGet(t *testing.T) {
 		ExpiresIn: (30 * 24 * time.Hour).Nanoseconds(),
 	}
 	if err := tok.Insert(db); err != nil {
-		t.Error("Failed to insert token to db: %v", u)
+		t.Error("Failed to insert token to db: %v", err)
 	}
 
 	// query for the inserted token
