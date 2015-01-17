@@ -3,8 +3,6 @@ package handlers
 import (
 	"errors"
 	"net/http"
-	"regexp"
-	"strings"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/jmoiron/sqlx"
@@ -13,11 +11,11 @@ import (
 	"github.com/ripple-cloud/cloud/router"
 )
 
-var scopeRegex *regexp.Regexp
-
-func init() {
-	scopeRegex = regexp.MustCompile(`^(?:/api/v\d/)([^/]+)(.*)$`) // eg: /api/v0/hub/list || /api/v0/app
-}
+//var scopeRegex *regexp.Regexp
+//
+//func init() {
+//	scopeRegex = regexp.MustCompile(`^(?:/api/v\d/)([^/]+)(.*)$`) // eg: /api/v0/hub/list || /api/v0/app
+//}
 
 func Auth(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	db, ok := c.Meta["db"].(*sqlx.DB)
@@ -38,12 +36,12 @@ func Auth(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	}
 
 	// check if the token is eligible for current scope
-	scope := scopeRegex.FindStringSubmatch(r.URL.Path)[1]
-	scopes := token.Claims["scopes"].(string)
-
-	if !contains(strings.Split(scopes, ","), scope) {
-		return res.Forbidden(w, res.ErrorMsg{"invalid_scope", "token is not valid for this scope"})
-	}
+	//	scope := scopeRegex.FindStringSubmatch(r.URL.Path)[1]
+	//	scopes := token.Claims["scopes"].(string)
+	//
+	//	if !contains(strings.Split(scopes, ","), scope) {
+	//		return res.Forbidden(w, res.ErrorMsg{"invalid_scope", "token is not valid for this scope"})
+	//	}
 
 	// check if the token was revoked from DB
 	t := data.Token{}
@@ -65,11 +63,11 @@ func Auth(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	return c.Next(w, r, c)
 }
 
-func contains(col []string, val string) bool {
-	for _, cur := range col {
-		if cur == val {
-			return true
-		}
-	}
-	return false
-}
+//func contains(col []string, val string) bool {
+//	for _, cur := range col {
+//		if cur == val {
+//			return true
+//		}
+//	}
+//	return false
+//}

@@ -54,6 +54,6 @@ func (t *Token) EncodeJWT(tokenSecret []byte) (string, error) {
 	j.Claims["exp"] = t.CreatedAt.Add(time.Duration(t.ExpiresIn)).Unix() // expires at
 	j.Claims["jti"] = t.ID                                               // token ID
 	j.Claims["user_id"] = t.UserID
-	j.Claims["scopes"] = "user,hub,app" // FIXME: should not be hardcoded
+	//j.Claims["scopes"] = "user,hub,app" // FIXME: should not be hardcoded
 	return j.SignedString(tokenSecret)
 }
