@@ -28,8 +28,6 @@ func Auth(w http.ResponseWriter, r *http.Request, c router.Context) error {
 		return errors.New("token secret not set in context")
 	}
 
-	//check that token param is included??
-
 	// parse the token param
 	token, err := jwt.ParseFromRequest(r, func(token *jwt.Token) (interface{}, error) {
 		return tokenSecret, nil
