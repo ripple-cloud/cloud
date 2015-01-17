@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/jmoiron/sqlx"
@@ -38,9 +39,9 @@ func Auth(w http.ResponseWriter, r *http.Request, c router.Context) error {
 
 	// check if the token is eligible for current scope
 	scope := scopeRegex.FindStringSubmatch(r.URL.Path)[1]
-	scopes := token.Claims["scopes"].([]interface{})
+	scopes := token.Claims["scopes"].(string)
 
-	if !contains(scopes, scope) {
+	if !contains(strings.Split(scopes, ","), scope) {
 		return res.Forbidden(w, res.ErrorMsg{"invalid_scope", "token is not valid for this scope"})
 	}
 
@@ -64,7 +65,7 @@ func Auth(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	return c.Next(w, r, c)
 }
 
-func contains(col []interface{}, val string) bool {
+func contains(col []string, val string) bool {
 	for _, cur := range col {
 		if cur == val {
 			return true

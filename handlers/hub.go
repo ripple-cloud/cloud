@@ -29,14 +29,7 @@ func AddHub(w http.ResponseWriter, r *http.Request, c router.Context) error {
 		return err
 	}
 
-	// prepare oAuth2 access token payload
-	payload := struct {
-		Slug string `json:"slug"`
-	}{
-		slug,
-	}
-
-	return res.OK(w, payload)
+	return res.OK(w, h)
 }
 
 // GET /api/v0/hub
@@ -63,71 +56,35 @@ func ShowHub(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	return res.OK(w, payload)
 }
 
-// // DELETE /api/hub
-// // Query: token, id
-// func DeleteHub(db *sql.DB) httprouter.Handle {
-// 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-// 		var respErr data.Error
-// 		var user data.User
-// 		var hub data.Hub
-//
-// 		q := map[string]string{
-// 			"token": r.URL.Query().Get("token"),
-// 			"id":    r.URL.Query().Get("id"),
-// 		}
-//
-// 		respErr = utils.SanitizeQuery(r, q)
-// 		if respErr != (data.Error{}) {
-// 			if err := utils.RespJSON(w, respErr, 400); err != nil {
-// 				fmt.Println(err)
-// 			}
-// 			return
-// 		}
-//
-// 		if user.GetByToken(db).Token == "" {
-// 			respErr = data.Error{
-// 				data.ErrorInfo{
-// 					Code:        "invalid_client",
-// 					Description: "token does not exist",
-// 				},
-// 			}
-//
-// 			if err := utils.RespJSON(w, respErr, 400); err != nil {
-// 				fmt.Println(err)
-// 			}
-// 			return
-// 		}
-//
-// 		// Check that hub id belongs to user of access token.
-// 		userIDToken := user.GetByToken(db).ID
-// 		//check
-// 		userIDID := hub.GetByID(db).UserID
-//
-// 		if userIDToken != userIDID {
-// 			resp := data.Error{
-// 				data.ErrorInfo{
-// 					Code:        "Invalid_request",
-// 					Description: "hub does not belong to user",
-// 				},
-// 			}
-// 			if err := utils.RespJSON(w, resp, 400); err != nil {
-// 				fmt.Println(err)
-// 			}
-// 		}
-//
-// 		resp := data.DeleteHub{
-// 			data.DeleteHubInfo{
-// 				ID:     q["id"],
-// 				Hub:    hub.GetByID(db).Hub,
-// 				UserID: userIDID,
-// 			},
-// 		}
-//
-// 		//define hub struct id
-//
-// 		hub.Delete(db)
-// 		if err := utils.RespJSON(w, resp, 200); err != nil {
-// 			fmt.Println(err)
-// 		}
-// 	}
-// }
+// DELETE /api/v0/hub
+// Params: access_token, slug
+func DeleteHub(w http.ResponseWriter, r *http.Request, c router.Context) error {
+	db, _ := c.Meta["db"].(*sqlx.DB)
+	userid := c.Meta["user_id"].(int64)
+
+	slug := r.FormValue("slug")
+	h := data.Hub{}
+	if err := h.GetByHub(db, slug); err != nil {
+		if e, ok := err.(*data.Error); ok {
+			return res.BadRequest(w, res.ErrorMsg{e.Code, e.Desc})
+		}
+		return err
+	}
+
+	if userid != h.UserID {
+		return res.BadRequest(w, res.ErrorMsg{"invalid_request", "user does not own hub"})
+	}
+
+	// Since all is well, delete hub from database
+	h = data.Hub{
+		Slug: slug,
+	}
+	if err := h.Delete(db); err != nil {
+		if e, ok := err.(*data.Error); ok {
+			return res.BadRequest(w, res.ErrorMsg{e.Code, e.Desc})
+		}
+		return err
+	}
+
+	return res.OK(w, h)
+}

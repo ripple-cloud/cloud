@@ -46,15 +46,29 @@ func (h *Hubs) GetByUserId(db *sqlx.DB, userid int64) error {
 	}
 }
 
-// func (hub *Hub) Delete(db *sql.DB) {
-// 	stmt, err := db.Prepare("DELETE FROM hubs WHERE id = $1", hub.ID)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	defer stmt.Close()
-//
-// 	_, err = stmt.Exec(value)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// }
+func (h *Hub) GetByHub(db *sqlx.DB, slug string) error {
+	err := db.Get(h, "SELECT user_id FROM hubs WHERE slug = $1;", slug)
+	switch err {
+	case nil:
+		return nil
+	case sql.ErrNoRows:
+		return &Error{"record_not_found", "hub not found"}
+	default:
+		return err
+	}
+}
+
+func (h *Hub) Delete(db *sqlx.DB) error {
+	nstmt, err := db.PrepareNamed(`DELETE FROM hubs
+	WHERE slug = (:slug)
+	RETURNING *;
+	`)
+	if err != nil {
+		return err
+	}
+	defer nstmt.Close()
+
+	err = nstmt.QueryRow(h).StructScan(h)
+	// TODO: handle error cases
+	return err
+}
