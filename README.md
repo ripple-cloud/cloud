@@ -1,8 +1,8 @@
 # Ripple Cloud
 
-Ripple Cloud is a web service that provides endpoints to interact with apps in a device (eg: a Raspberry Pi).
+Ripple Cloud is a web service that provides endpoints to manage hubs and apps that runs on them.
 
-For this, your device must be running [Ripple Hub](https://github.com/ripple-cloud/hub).
+Any device that can run [Ripple Hub](https://github.com/ripple-cloud/hub) could be a hub (eg: Raspberry PI).
 
 ## Endpoints
 
@@ -58,14 +58,15 @@ If the request was not successful, you will receive a response with status code 
 
 ### App
 
-* Register an app (`POST /api/v1/app`)
-* Send a request to an app (`POST /api/v1/app/:id`)
-* List all datapoints collected from an app (`GET /api/v1/app/:id`)
-* Delete an app (`DELETE /api/v1/app`)
+* Register an app (`POST /api/v1/app/:slug`)
+* Send a request to an app (`POST /api/v1/app/:slug/job`)
+* List all datapoints collected from an app (`GET /api/v1/app/:slug/job/id`)
+* Delete an app (`DELETE /api/v1/app/:slug`)
 
 ## Development
 
 * Install `go get github.com/mattes/migrate`
 * Copy `.env-example` to `.env`
   - Set your postgres DB URL
+* Export environment: `source .env`
 * To run migrations: `make migrate`
