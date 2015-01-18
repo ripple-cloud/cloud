@@ -15,7 +15,6 @@ type ReceivedMessage struct {
 	Meta       hstore.Hstore `db:"meta" json:"-"`
 	Message    []byte        `db:"message" json:"message"`
 	HubID      int64         `db:"hub_id" json:"hub_id"`
-	UserID     int64         `db:"user_id" json:"user_id"`
 	ReceivedAt *time.Time    `db:"received_at" json:"received_at"`
 }
 
@@ -23,8 +22,8 @@ type ReceivedMessages []ReceivedMessage
 
 func (m *ReceivedMessage) Insert(db *sqlx.DB) error {
 	nstmt, err := db.PrepareNamed(`INSERT INTO received_messages 
-	(topic, meta, message, hub_id, user_id, received_at)
-	VALUES (:topic, :meta, :message, :hub_id, :user_id, now())
+	(topic, meta, message, hub_id, received_at)
+	VALUES (:topic, :meta, :message, :hub_id, now())
 	RETURNING *;
 	`)
 	if err != nil {
