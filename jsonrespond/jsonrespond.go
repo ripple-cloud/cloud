@@ -49,3 +49,11 @@ func Forbidden(w http.ResponseWriter, err ErrorMsg) error {
 func ServerError(w http.ResponseWriter, err ErrorMsg) error {
 	return Respond(w, http.StatusInternalServerError, err)
 }
+
+func UnsupportedMediaType(w http.ResponseWriter, err ErrorMsg) error {
+	return Respond(w, http.StatusUnsupportedMediaType, err)
+}
+
+func UnprocessableEntity(w http.ResponseWriter, err ErrorMsg) error {
+	return Respond(w, 422, err)
+}
