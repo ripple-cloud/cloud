@@ -26,6 +26,9 @@ func AddHub(w http.ResponseWriter, r *http.Request, c router.Context) error {
 		UserID: c.Meta["user_id"].(int64),
 	}
 	if err := h.Insert(db); err != nil {
+		if e, ok := err.(*data.Error); ok {
+			return res.BadRequest(w, res.ErrorMsg{e.Code, e.Desc})
+		}
 		return err
 	}
 
@@ -39,7 +42,7 @@ func ShowHub(w http.ResponseWriter, r *http.Request, c router.Context) error {
 
 	// Since all is well, get hub(s) from database
 	var h data.Hubs
-	if err := h.GetByUserId(db, c.Meta["user_id"].(int64)); err != nil {
+	if err := h.SelectByUserId(db, c.Meta["user_id"].(int64)); err != nil {
 		if e, ok := err.(*data.Error); ok {
 			return res.BadRequest(w, res.ErrorMsg{e.Code, e.Desc})
 		}
@@ -64,7 +67,7 @@ func DeleteHub(w http.ResponseWriter, r *http.Request, c router.Context) error {
 
 	slug := r.FormValue("slug")
 	h := data.Hub{}
-	if err := h.GetByHub(db, slug); err != nil {
+	if err := h.Get(db, slug); err != nil {
 		if e, ok := err.(*data.Error); ok {
 			return res.BadRequest(w, res.ErrorMsg{e.Code, e.Desc})
 		}

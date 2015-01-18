@@ -6,7 +6,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 type Token struct {
@@ -30,20 +30,28 @@ func (t *Token) Insert(db *sqlx.DB) error {
 	defer nstmt.Close()
 
 	err = nstmt.QueryRow(t).StructScan(t)
-	//TODO: handle the possible error cases (like record not unique)
+	if err, ok := err.(*pq.Error); ok {
+		switch err.Code.Name() {
+		default:
+			return &Error{err.Code.Name(), "pq error"}
+		}
+	}
 	return err
 }
 
 func (t *Token) Get(db *sqlx.DB, id int64) error {
 	err := db.Get(t, "SELECT * FROM tokens WHERE id = $1 LIMIT 1;", id)
-	switch err {
-	case nil:
-		return nil
-	case sql.ErrNoRows:
-		return &Error{"record_not_found", "token not found"}
-	default:
-		return err
+	if err, ok := err.(*pq.Error); ok {
+		switch err.Code.Name() {
+		default:
+			return &Error{err.Code.Name(), "pq error"}
+		}
 	}
+
+	if err == sql.ErrNoRows {
+		return &Error{"record_not_found", "token not found"}
+	}
+	return err
 }
 
 // Encode JWT will return the current token encoded as a JSON web token.

@@ -64,7 +64,28 @@ func TestInsert(t *testing.T) {
 		t.Error("UpdatedAt must be set")
 	}
 
-	// TODO: Add tests for failure test paths
+	// check if adding existing hub violates unique constraint
+	u1 := &data.User{
+		Username:          "chucknorris",
+		Email:             "gmail@chucknorris.com",
+		EncryptedPassword: "wood-chuck-chuck",
+	}
+	err := u1.Insert(db)
+
+	if err == nil {
+		t.Error("Insert should return an error")
+	}
+	e, ok := err.(*data.Error)
+	if !ok {
+		t.Error("Returned error must be of type `data.Error`")
+	}
+	if e.Code != "unique_violation" {
+		t.Error("Error code must be 'unique violation' but received %s", e.Code)
+	}
+	if e.Desc != "user exists" {
+		t.Error("Error desc must be 'user exists' but received %s", e.Desc)
+	}
+
 	db.Close()
 }
 
@@ -82,7 +103,7 @@ func TestGetByLogin(t *testing.T) {
 		t.Error("Failed to insert user to db: %v", u)
 	}
 
-	// query for the inserted user	by username
+	// query for the inserted user by username
 	u1 := &data.User{}
 	if err := u1.GetByLogin(db, "chucknorris"); err != nil {
 		t.Error("Failed to get user with username: chucknorris")
@@ -91,7 +112,7 @@ func TestGetByLogin(t *testing.T) {
 		t.Error("Unexpected user record returned: %v", u1)
 	}
 
-	// query for the inserted user	by email
+	// query for the inserted user by email
 	u2 := &data.User{}
 	if err := u2.GetByLogin(db, "gmail@chucknorris.com"); err != nil {
 		t.Error("Failed to get user with email: gmail@chucknorris.com")

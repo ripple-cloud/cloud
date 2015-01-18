@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 type Hub struct {
@@ -30,33 +30,45 @@ func (h *Hub) Insert(db *sqlx.DB) error {
 	defer nstmt.Close()
 
 	err = nstmt.QueryRow(h).StructScan(h)
-	// FIXME: Make hub record unique?
-	//TODO: handle the possible error cases (like record not unique)
+	if err, ok := err.(*pq.Error); ok {
+		switch err.Code.Name() {
+		case "unique_violation":
+			return &Error{"unique_violation", "hub exists"}
+		default:
+			return &Error{err.Code.Name(), "pq error"}
+		}
+	}
 	return err
 }
 
-func (h *Hubs) GetByUserId(db *sqlx.DB, userid int64) error {
+func (h *Hubs) SelectByUserId(db *sqlx.DB, userid int64) error {
 	err := db.Select(h, "SELECT slug FROM hubs WHERE user_id = $1;", userid)
-	switch {
-	case *h == nil:
-		return &Error{"record_not_found", "hub not found"}
-	case err == nil:
-		return nil
-	default:
-		return err
+	if err, ok := err.(*pq.Error); ok {
+		switch err.Code.Name() {
+		default:
+			return &Error{err.Code.Name(), "pq error"}
+		}
 	}
+
+	if *h == nil {
+		return &Error{"record_not_found", "hub not found"}
+	}
+	return err
 }
 
-func (h *Hub) GetByHub(db *sqlx.DB, slug string) error {
+func (h *Hub) Get(db *sqlx.DB, slug string) error {
 	err := db.Get(h, "SELECT user_id FROM hubs WHERE slug = $1;", slug)
-	switch err {
-	case nil:
-		return nil
-	case sql.ErrNoRows:
-		return &Error{"record_not_found", "hub not found"}
-	default:
-		return err
+	if err, ok := err.(*pq.Error); ok {
+		switch err.Code.Name() {
+		default:
+			return &Error{err.Code.Name(), "pq error"}
+		}
 	}
+
+	if err == sql.ErrNoRows {
+		return &Error{"record_not_found", "hub not found"}
+	}
+	return err
 }
 
 func (h *Hub) Delete(db *sqlx.DB) error {
@@ -70,6 +82,7 @@ func (h *Hub) Delete(db *sqlx.DB) error {
 	defer nstmt.Close()
 
 	err = nstmt.QueryRow(h).StructScan(h)
-	//TODO: handle errors
+	// TODO?: Handle possible error cases? Eg...
+	// hub record_not_found error would have already been caught in Get Method above.
 	return err
 }

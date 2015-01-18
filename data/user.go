@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -48,7 +48,14 @@ func (u *User) Insert(db *sqlx.DB) error {
 	defer nstmt.Close()
 
 	err = nstmt.QueryRow(u).StructScan(u)
-	//TODO: handle the possible error cases (like record not unique)
+	if err, ok := err.(*pq.Error); ok {
+		switch err.Code.Name() {
+		case "unique_violation":
+			return &Error{"unique_violation", "user exists"}
+		default:
+			return &Error{err.Code.Name(), "pq error"}
+		}
+	}
 	return err
 }
 
