@@ -48,7 +48,7 @@ func TestInsert(t *testing.T) {
 		EncryptedPassword: "wood-chuck-chuck",
 	}
 	if err := u.Insert(db); err != nil {
-		t.Error("Failed to insert user to db: %v", u)
+		t.Error("Failed to insert user to db: %v", err)
 	}
 
 	// check if returned values are scanned back to the struct
@@ -100,7 +100,7 @@ func TestGetByLogin(t *testing.T) {
 		EncryptedPassword: "wood-chuck-chuck",
 	}
 	if err := u.Insert(db); err != nil {
-		t.Error("Failed to insert user to db: %v", u)
+		t.Error("Failed to insert user to db: %v", err)
 	}
 
 	// query for the inserted user by username
@@ -150,7 +150,7 @@ func TestGet(t *testing.T) {
 		EncryptedPassword: "wood-chuck-chuck",
 	}
 	if err := u.Insert(db); err != nil {
-		t.Error("Failed to insert user to db: %v", u)
+		t.Error("Failed to insert user to db: %v", err)
 	}
 
 	// query using an existing user ID

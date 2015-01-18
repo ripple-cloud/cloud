@@ -52,6 +52,11 @@ func main() {
 	r.GET("/api/v0/hub", handlers.Auth, handlers.ShowHub)
 	r.DELETE("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
 
+	r.POST("/api/v0/app/:slug", handlers.Auth, handlers.RegisterApp)
+	r.DELETE("/api/v0/app/:slug", handlers.Auth, handlers.DeregisterApp)
+	//r.POST("/api/v0/app/:slug/job", handlers.Auth, nil)
+	//r.GET("/api/v0/app/:slug/job", handlers.Auth, nil)
+
 	log.Print("[info] Starting server on ", addr)
 	log.Fatal(http.ListenAndServe(addr, r))
 }
