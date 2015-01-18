@@ -48,9 +48,9 @@ func main() {
 	r.POST("/oauth/token", handlers.UserToken)
 
 	// authenticated routes
-	// r.POST("/api/v0/hub", handlers.Auth, handlers.AddHub)
-	// r.GET("/api/v0/hub", handlers.Auth, handlers.ShowHub)
-	// r.DELETE("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
+	r.POST("/api/v0/hub", handlers.Auth, handlers.AddHub)
+	r.GET("/api/v0/hub", handlers.Auth, handlers.ShowHub)
+	r.DELETE("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
 
 	log.Print("[info] Starting server on ", addr)
 	log.Fatal(http.ListenAndServe(addr, r))
