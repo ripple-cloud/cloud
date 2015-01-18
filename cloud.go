@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/ripple-cloud/cloud/dispatcher"
 	"github.com/ripple-cloud/cloud/handlers"
 	"github.com/ripple-cloud/cloud/router"
 )
@@ -38,7 +39,14 @@ func main() {
 	}
 	defer db.Close()
 
-	go dataCollector.Start()
+	// connect to MQTT broker
+	b := broker.NewMQTTBroker()
+	if err := b.Connect(broker); err != nil {
+		log.Fatal(err)
+	}
+	defer b.Disconnect()
+
+	err := dispatcher.Start(db, broker)
 
 	r := router.New()
 	// default handlers are applied to all routes
@@ -53,9 +61,12 @@ func main() {
 	r.GET("/api/v0/hub", handlers.Auth, handlers.ShowHub)
 	r.DELETE("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
 
-	r.POST("/send/:topic", handlers.Auth, nil)
-	r.GET("/received/:topic", handlers.Auth, nil)
-	r.DELETE("/received/:topic", handlers.Auth, nil)
+	r.POST("/send/:topic", handlers.Auth, handlers.SetBroker(broker), handlers.SendMessage)           // send to all hubs
+	r.POST("/hub/:slug/send/:topic", handlers.Auth, handlers.SetBroker(broker), handlers.SendMessage) // send the message only to a specific hub
+
+	r.GET("/received/:topic/last", handlers.Auth, handlers.LastReceivedMessages)
+	//r.GET("/received/:topic", handlers.Auth, handlers.ListReceivedMessages)
+	//r.DELETE("/received/:topic", handlers.Auth, handlers.ClearReceivedMessages)
 
 	log.Print("[info] Starting server on ", addr)
 	log.Fatal(http.ListenAndServe(addr, r))
