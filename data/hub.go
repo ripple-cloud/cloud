@@ -30,17 +30,18 @@ func (h *Hub) Insert(db *sqlx.DB) error {
 	defer nstmt.Close()
 
 	err = nstmt.QueryRow(h).StructScan(h)
+	// FIXME: Make hub record unique?
 	//TODO: handle the possible error cases (like record not unique)
 	return err
 }
 
 func (h *Hubs) GetByUserId(db *sqlx.DB, userid int64) error {
 	err := db.Select(h, "SELECT slug FROM hubs WHERE user_id = $1;", userid)
-	switch err {
-	case nil:
-		return nil
-	case sql.ErrNoRows:
+	switch {
+	case *h == nil:
 		return &Error{"record_not_found", "hub not found"}
+	case err == nil:
+		return nil
 	default:
 		return err
 	}
@@ -69,6 +70,6 @@ func (h *Hub) Delete(db *sqlx.DB) error {
 	defer nstmt.Close()
 
 	err = nstmt.QueryRow(h).StructScan(h)
-	// TODO: handle error cases
+	//TODO: handle errors
 	return err
 }
