@@ -38,8 +38,9 @@ func main() {
 	}
 	defer db.Close()
 
-	r := router.New()
+	go dataCollector.Start()
 
+	r := router.New()
 	// default handlers are applied to all routes
 	r.Default(handlers.SetConfig(db, []byte(tokenSecret)))
 
@@ -51,6 +52,10 @@ func main() {
 	r.POST("/api/v0/hub", handlers.Auth, handlers.AddHub)
 	r.GET("/api/v0/hub", handlers.Auth, handlers.ShowHub)
 	r.DELETE("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
+
+	r.POST("/send/:topic", handlers.Auth, nil)
+	r.GET("/received/:topic", handlers.Auth, nil)
+	r.DELETE("/received/:topic", handlers.Auth, nil)
 
 	log.Print("[info] Starting server on ", addr)
 	log.Fatal(http.ListenAndServe(addr, r))
