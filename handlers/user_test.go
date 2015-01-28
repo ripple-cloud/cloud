@@ -39,6 +39,7 @@ func TestSignup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer ts.Close()
 
 	type testCase struct {
 		path       string

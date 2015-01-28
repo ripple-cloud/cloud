@@ -42,6 +42,7 @@ func TestAuthToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer ts.Close()
 
 	// create a user
 	u := &data.User{

@@ -62,6 +62,7 @@ func TestAddHub(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer ts.Close()
 
 	// create a user
 	u := &data.User{
@@ -167,6 +168,7 @@ func TestShowHub(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer ts.Close()
 
 	// create a user
 	u := &data.User{
@@ -246,6 +248,7 @@ func TestDeleteHub(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer ts.Close()
 
 	// create a user
 	u := &data.User{
