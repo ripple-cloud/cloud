@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"regexp"
 	"testing"
 	"time"
 
@@ -45,10 +46,30 @@ func TestSignup(t *testing.T) {
 		body       string
 	}
 
-	tCases := []testCase{
-		// when valid params are provided
-		{"?username=foo&email=foo@example.com&password=password", http.StatusCreated, ""},
+	jsonRespRegex := regexp.MustCompile(`^{"id":1,"username":"foo","email":"foo@example.com","created_at":.+,"updated_at":.+}$`)
 
+	// test when valid params are provided
+	sc := testCase{"?username=foo&email=foo@example.com&password=password", http.StatusCreated, `{"id":1,"username":"foo","email":"foo@example.com","created_at":.+,"updated_at":.+}`}
+
+	res, err := http.Get(ts.URL + path.Join("/signup", sc.path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != sc.statusCode {
+		t.Errorf("%s - Expected status code %v, Got %v", sc.path, sc.statusCode, res.StatusCode)
+	}
+	b, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if body := string(b); !jsonRespRegex.MatchString(body) {
+		t.Errorf("%s - Expected response body to be %v, Got %v", sc.path, sc.body, body)
+	}
+
+	//test when invalid params are provided
+	tCases := []testCase{
 		// when username param is missing
 		{"?email=foo@example.com&password=password", http.StatusBadRequest, `{"error":"username_required","error_description":"username required"}`},
 
@@ -59,7 +80,7 @@ func TestSignup(t *testing.T) {
 		{"?username=foo&email=foo@example.com", http.StatusBadRequest, `{"error":"password_required","error_description":"password required"}`},
 	}
 
-	for i, tc := range tCases {
+	for _, tc := range tCases {
 		res, err := http.Get(ts.URL + path.Join("/signup", tc.path))
 		if err != nil {
 			t.Fatal(err)
@@ -73,12 +94,8 @@ func TestSignup(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// TODO: separate successful test and parse JSON body
-		// exclude testing json body for valid params because of arbitrary timestamps from postgres.
-		if i != 0 {
-			if body := string(b); body != tc.body {
-				t.Errorf("%s - Expected response body to be %v, Got %v", tc.path, tc.body, body)
-			}
+		if body := string(b); body != tc.body {
+			t.Errorf("%s - Expected response body to be %v, Got %v", tc.path, tc.body, body)
 		}
 	}
 }

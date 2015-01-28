@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"regexp"
 	"testing"
 	"time"
 
@@ -103,11 +104,29 @@ func TestAddHub(t *testing.T) {
 		body       string
 	}
 
-	tCases := []testCase{
-		// when valid params are provided
-		// TODO: separate successful test and parse JSON body
-		// {"?slug=abcd&access_token=" + jwt, http.StatusOK, ""},
+	jsonRespRegex := regexp.MustCompile(`^{"id":2,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}$`)
 
+	// test when valid params are provided
+	sc := testCase{"?slug=abcd&access_token=" + jwt, http.StatusOK, `{"id":2,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}`}
+
+	res, err := http.Get(ts.URL + path.Join("/api/v0/hub", sc.path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != sc.statusCode {
+		t.Errorf("%s - Expected status code %v, Got %v", sc.path, sc.statusCode, res.StatusCode)
+	}
+	b, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if body := string(b); !jsonRespRegex.MatchString(body) {
+		t.Errorf("%s - Expected response body to be %v, Got %v", sc.path, sc.body, body)
+	}
+
+	tCases := []testCase{
 		// when slug param is missing
 		{"?access_token=" + jwt, http.StatusBadRequest, `{"error":"invalid_request","error_description":"slug required"}`},
 
@@ -269,11 +288,29 @@ func TestDeleteHub(t *testing.T) {
 		body       string
 	}
 
-	tCases := []testCase{
-		// when valid params are provided
-		//TODO: separate successful test case and parse
-		//{"?slug=abcd&access_token=" + jwt, http.StatusOK, `{"hub":["abcd"]}`},
+	jsonRespRegex := regexp.MustCompile(`^{"id":1,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}$`)
 
+	// test when valid params are provided
+	sc := testCase{"?slug=abcd&access_token=" + jwt, http.StatusOK, `{"id":1,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}`}
+
+	res, err := http.Get(ts.URL + path.Join("/api/v0/hub", sc.path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != sc.statusCode {
+		t.Errorf("%s - Expected status code %v, Got %v", sc.path, sc.statusCode, res.StatusCode)
+	}
+	b, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if body := string(b); !jsonRespRegex.MatchString(body) {
+		t.Errorf("%s - Expected response body to be %v, Got %v", sc.path, sc.body, body)
+	}
+
+	tCases := []testCase{
 		// when slug param is missing
 		{"?access_token=" + jwt, http.StatusBadRequest, `{"error":"invalid_request","error_description":"slug required"}`},
 
