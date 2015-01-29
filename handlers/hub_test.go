@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"path"
 	"regexp"
 	"testing"
 	"time"
@@ -16,7 +15,7 @@ import (
 	"github.com/ripple-cloud/cloud/testhelpers"
 )
 
-func setupServerAddHub(db *sqlx.DB, tokenSecret []byte) (*httptest.Server, error) {
+func setupServerHub(db *sqlx.DB, tokenSecret []byte) (*httptest.Server, error) {
 	r := router.New()
 
 	r.Default(
@@ -24,30 +23,8 @@ func setupServerAddHub(db *sqlx.DB, tokenSecret []byte) (*httptest.Server, error
 	)
 
 	r.GET("/api/v0/hub", handlers.Auth, handlers.AddHub)
-
-	return httptest.NewServer(r), nil
-}
-
-func setupServerShowHub(db *sqlx.DB, tokenSecret []byte) (*httptest.Server, error) {
-	r := router.New()
-
-	r.Default(
-		handlers.SetConfig(db, []byte(tokenSecret)),
-	)
-
-	r.GET("/api/v0/hub", handlers.Auth, handlers.ShowHub)
-
-	return httptest.NewServer(r), nil
-}
-
-func setupServerDeleteHub(db *sqlx.DB, tokenSecret []byte) (*httptest.Server, error) {
-	r := router.New()
-
-	r.Default(
-		handlers.SetConfig(db, []byte(tokenSecret)),
-	)
-
-	r.GET("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
+	r.POST("/api/v0/hub", handlers.Auth, handlers.ShowHub)
+	r.DELETE("/api/v0/hub", handlers.Auth, handlers.DeleteHub)
 
 	return httptest.NewServer(r), nil
 }
@@ -58,7 +35,7 @@ func TestAddHub(t *testing.T) {
 	defer db.Close()
 
 	// setup server
-	ts, err := setupServerAddHub(db, []byte("secret"))
+	ts, err := setupServerHub(db, []byte("secret"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +87,7 @@ func TestAddHub(t *testing.T) {
 	// test when valid params are provided
 	sc := testCase{"?slug=abcd&access_token=" + jwt, http.StatusOK, `{"id":2,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}`}
 
-	res, err := http.Get(ts.URL + path.Join("/api/v0/hub", sc.path))
+	res, err := http.Get(ts.URL + "/api/v0/hub" + sc.path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +115,7 @@ func TestAddHub(t *testing.T) {
 		{"?slug=1234&access_token=" + jwt, http.StatusBadRequest, `{"error":"unique_violation","error_description":"hub exists"}`},
 	}
 	for _, tc := range tCases {
-		res, err := http.Get(ts.URL + path.Join("/api/v0/hub", tc.path))
+		res, err := http.Get(ts.URL + "/api/v0/hub" + tc.path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -151,7 +128,6 @@ func TestAddHub(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// exclude testing json body for valid params because of arbitrary timestamps from postgres.
 		if body := string(b); body != tc.body {
 			t.Errorf("%s - Expected response body to be %v, Got %v", tc.path, tc.body, body)
 		}
@@ -164,7 +140,7 @@ func TestShowHub(t *testing.T) {
 	defer db.Close()
 
 	// setup server
-	ts, err := setupServerShowHub(db, []byte("secret"))
+	ts, err := setupServerHub(db, []byte("secret"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +195,7 @@ func TestShowHub(t *testing.T) {
 		{"?" + jwt, http.StatusUnauthorized, `{"error":"invalid_token","error_description":"no token present in request"}`},
 	}
 	for _, tc := range tCases {
-		res, err := http.Get(ts.URL + path.Join("/api/v0/hub", tc.path))
+		res, err := http.Post(ts.URL+"/api/v0/hub"+tc.path, "", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -244,7 +220,7 @@ func TestDeleteHub(t *testing.T) {
 	defer db.Close()
 
 	// setup server
-	ts, err := setupServerDeleteHub(db, []byte("secret"))
+	ts, err := setupServerHub(db, []byte("secret"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,11 +271,13 @@ func TestDeleteHub(t *testing.T) {
 
 	// test when valid params are provided
 	sc := testCase{"?slug=abcd&access_token=" + jwt, http.StatusOK, `{"id":1,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}`}
-
-	res, err := http.Get(ts.URL + path.Join("/api/v0/hub", sc.path))
+	result, err := http.NewRequest("DELETE", ts.URL+"/api/v0/hub"+sc.path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	res, _ := http.DefaultClient.Do(result)
+
 	if res.StatusCode != sc.statusCode {
 		t.Errorf("%s - Expected status code %v, Got %v", sc.path, sc.statusCode, res.StatusCode)
 	}
@@ -321,10 +299,13 @@ func TestDeleteHub(t *testing.T) {
 		{"?slug=1234&access_token=" + jwt, http.StatusBadRequest, `{"error":"record_not_found","error_description":"hub not found"}`},
 	}
 	for _, tc := range tCases {
-		res, err := http.Get(ts.URL + path.Join("/api/v0/hub", tc.path))
+		result, err := http.NewRequest("DELETE", ts.URL+"/api/v0/hub"+tc.path, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		res, _ := http.DefaultClient.Do(result)
+
 		if res.StatusCode != tc.statusCode {
 			t.Errorf("%s - Expected status code %v, Got %v", tc.path, tc.statusCode, res.StatusCode)
 		}

@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"path"
 	"regexp"
 	"testing"
 	"time"
@@ -23,8 +22,8 @@ func setupServerUser(db *sqlx.DB, tokenSecret []byte) (*httptest.Server, error) 
 		handlers.SetConfig(db, []byte(tokenSecret)),
 	)
 
-	r.GET("/signup", handlers.Signup)
-	r.GET("/oauth/token", handlers.UserToken)
+	r.POST("/signup", handlers.Signup)
+	r.POST("/oauth/token", handlers.UserToken)
 
 	return httptest.NewServer(r), nil
 }
@@ -52,7 +51,7 @@ func TestSignup(t *testing.T) {
 	// test when valid params are provided
 	sc := testCase{"?username=foo&email=foo@example.com&password=password", http.StatusCreated, `{"id":1,"username":"foo","email":"foo@example.com","created_at":.+,"updated_at":.+}`}
 
-	res, err := http.Get(ts.URL + path.Join("/signup", sc.path))
+	res, err := http.Post(ts.URL+"/signup"+sc.path, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +81,7 @@ func TestSignup(t *testing.T) {
 	}
 
 	for _, tc := range tCases {
-		res, err := http.Get(ts.URL + path.Join("/signup", tc.path))
+		res, err := http.Post(ts.URL+"/signup"+tc.path, "", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -167,7 +166,7 @@ func TestUserToken(t *testing.T) {
 	}
 
 	for _, tc := range tCases {
-		res, err := http.Get(ts.URL + path.Join("/oauth/token", tc.path))
+		res, err := http.Post(ts.URL+"/oauth/token"+tc.path, "", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
