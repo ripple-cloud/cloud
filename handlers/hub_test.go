@@ -1,10 +1,10 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"testing"
 	"time"
 
@@ -82,26 +82,23 @@ func TestAddHub(t *testing.T) {
 		body       string
 	}
 
-	jsonRespRegex := regexp.MustCompile(`^{"id":2,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}$`)
-
 	// test when valid params are provided
-	sc := testCase{"?slug=abcd&access_token=" + jwt, http.StatusOK, `{"id":2,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}`}
-
-	res, err := http.Get(ts.URL + "/api/v0/hub" + sc.path)
+	spath := "?slug=abcd&access_token=" + jwt
+	res, err := http.Get(ts.URL + "/api/v0/hub" + spath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.StatusCode != sc.statusCode {
-		t.Errorf("%s - Expected status code %v, Got %v", sc.path, sc.statusCode, res.StatusCode)
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("%s - Expected status code %v, Got %v", spath, http.StatusOK, res.StatusCode)
 	}
 	b, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	if body := string(b); !jsonRespRegex.MatchString(body) {
-		t.Errorf("%s - Expected response body to be %v, Got %v", sc.path, sc.body, body)
+	h := data.Hub{}
+	if err := json.Unmarshal(b, &h); err != nil {
+		t.Errorf("%s - Expected response body to be %+v, Got %s", spath, h, b)
 	}
 
 	tCases := []testCase{
@@ -267,28 +264,29 @@ func TestDeleteHub(t *testing.T) {
 		body       string
 	}
 
-	jsonRespRegex := regexp.MustCompile(`^{"id":1,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}$`)
-
 	// test when valid params are provided
-	sc := testCase{"?slug=abcd&access_token=" + jwt, http.StatusOK, `{"id":1,"slug":"abcd","user_id":1,"created_at":.+,"updated_at":.+}`}
-	result, err := http.NewRequest("DELETE", ts.URL+"/api/v0/hub"+sc.path, nil)
+	spath := "?slug=abcd&access_token=" + jwt
+	result, err := http.NewRequest("DELETE", ts.URL+"/api/v0/hub"+spath, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	res, _ := http.DefaultClient.Do(result)
+	res, err := http.DefaultClient.Do(result)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if res.StatusCode != sc.statusCode {
-		t.Errorf("%s - Expected status code %v, Got %v", sc.path, sc.statusCode, res.StatusCode)
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("%s - Expected status code %v, Got %v", spath, http.StatusOK, res.StatusCode)
 	}
 	b, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	if body := string(b); !jsonRespRegex.MatchString(body) {
-		t.Errorf("%s - Expected response body to be %v, Got %v", sc.path, sc.body, body)
+	h := data.Hub{}
+	if err := json.Unmarshal(b, &h); err != nil {
+		t.Errorf("%s - Expected response body to be %+v, Got %s", spath, h, b)
 	}
 
 	tCases := []testCase{
@@ -304,7 +302,10 @@ func TestDeleteHub(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		res, _ := http.DefaultClient.Do(result)
+		res, err := http.DefaultClient.Do(result)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if res.StatusCode != tc.statusCode {
 			t.Errorf("%s - Expected status code %v, Got %v", tc.path, tc.statusCode, res.StatusCode)

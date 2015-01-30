@@ -1,10 +1,10 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"testing"
 	"time"
 
@@ -46,26 +46,23 @@ func TestSignup(t *testing.T) {
 		body       string
 	}
 
-	jsonRespRegex := regexp.MustCompile(`^{"id":1,"username":"foo","email":"foo@example.com","created_at":.+,"updated_at":.+}$`)
-
 	// test when valid params are provided
-	sc := testCase{"?username=foo&email=foo@example.com&password=password", http.StatusCreated, `{"id":1,"username":"foo","email":"foo@example.com","created_at":.+,"updated_at":.+}`}
-
-	res, err := http.Post(ts.URL+"/signup"+sc.path, "", nil)
+	spath := "?username=foo&email=foo@example.com&password=password"
+	res, err := http.Post(ts.URL+"/signup"+spath, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.StatusCode != sc.statusCode {
-		t.Errorf("%s - Expected status code %v, Got %v", sc.path, sc.statusCode, res.StatusCode)
+	if res.StatusCode != http.StatusCreated {
+		t.Errorf("%s - Expected status code %v, Got %v", spath, http.StatusCreated, res.StatusCode)
 	}
 	b, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	if body := string(b); !jsonRespRegex.MatchString(body) {
-		t.Errorf("%s - Expected response body to be %v, Got %v", sc.path, sc.body, body)
+	u := data.User{}
+	if err := json.Unmarshal(b, &u); err != nil {
+		t.Errorf("%s - Expected response body to be %+v, Got %s", spath, u, b)
 	}
 
 	//test when invalid params are provided
