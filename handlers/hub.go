@@ -66,6 +66,9 @@ func DeleteHub(w http.ResponseWriter, r *http.Request, c router.Context) error {
 	userid := c.Meta["user_id"].(int64)
 
 	slug := r.FormValue("slug")
+	if slug == "" {
+		return res.BadRequest(w, res.ErrorMsg{"invalid_request", "slug required"})
+	}
 	h := data.Hub{}
 	if err := h.Get(db, slug); err != nil {
 		if e, ok := err.(*data.Error); ok {
